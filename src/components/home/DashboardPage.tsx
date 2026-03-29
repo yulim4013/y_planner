@@ -5,7 +5,7 @@ import { formatDate } from '../../utils/dateUtils'
 import { subscribeTasks, toggleTaskComplete } from '../../services/taskService'
 import { subscribeEvents } from '../../services/eventService'
 import {
-  subscribeRoutinesByDate, addRoutine, addRoutineTemplate,
+  subscribeRoutinesByDate, addRoutineTemplate,
   toggleRoutineComplete, deleteRoutine, incrementWater, decrementWater,
   subscribeActiveTemplates, deleteRoutineTemplate,
 } from '../../services/routineService'

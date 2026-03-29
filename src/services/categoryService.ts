@@ -8,7 +8,6 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
-  where,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'

@@ -15,7 +15,7 @@ export default function CategoryPicker({ type, value, onChange }: CategoryPicker
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('')
-  const [newColor, setNewColor] = useState(PASTEL_COLORS[0].value)
+  const [newColor, setNewColor] = useState<string>(PASTEL_COLORS[0].value)
   const [newEventCategoryId, setNewEventCategoryId] = useState<string | null>(null)
 
   useEffect(() => {

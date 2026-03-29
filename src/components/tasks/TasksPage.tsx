@@ -166,7 +166,7 @@ export default function TasksPage() {
           </p>
         </GlassCard>
       ) : sort === 'category' && categoryGroups ? (
-        categoryGroups.map((group, i) => (
+        categoryGroups.map((group) => (
           <GlassCard key={group.cat?.id || '__none__'}>
             <div className="cat-group-header">
               {group.cat ? (

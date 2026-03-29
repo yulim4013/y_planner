@@ -32,7 +32,7 @@ export default function AccountForm({ isOpen, onClose, editAccount, accountCount
   const [name, setName] = useState('')
   const [accType, setAccType] = useState<Account['type']>('checking')
   const [balance, setBalance] = useState('')
-  const [color, setColor] = useState(PASTEL_COLORS[0].value)
+  const [color, setColor] = useState<string>(PASTEL_COLORS[0].value)
 
   useEffect(() => {
     if (editAccount) {

@@ -15,7 +15,7 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
   const [editCat, setEditCat] = useState<Category | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [name, setName] = useState('')
-  const [color, setColor] = useState(PASTEL_COLORS[0].value)
+  const [color, setColor] = useState<string>(PASTEL_COLORS[0].value)
   const [icon, setIcon] = useState('')
   const [type, setType] = useState<'task' | 'event'>('task')
   const [eventCategoryId, setEventCategoryId] = useState<string | null>(null)
@@ -28,7 +28,6 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
   const eventCats = categories.filter((c) => c.type === 'event' || c.type === 'all')
   const taskCats = categories.filter((c) => c.type === 'task' || c.type === 'all')
 
-  const getEventCat = (id: string | null) => id ? eventCats.find((c) => c.id === id) : null
 
   const openAdd = (catType: 'task' | 'event') => {
     setEditCat(null)
