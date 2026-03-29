@@ -1,0 +1,19 @@
+.pastel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pastel-badge-sm {
+  padding: 2px 7px;
+  font-size: 10px;
+}
+
+.pastel-badge-icon {
+  font-size: var(--font-size-xs);
+}

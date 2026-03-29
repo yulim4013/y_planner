@@ -1,0 +1,184 @@
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+  where,
+} from 'firebase/firestore'
+import { db } from '../config/firebase'
+import { useAuthStore } from '../store/authStore'
+import type { Task } from '../types'
+
+function getTasksRef() {
+  const uid = useAuthStore.getState().user?.uid
+  if (!uid || !db) return null
+  return collection(db, 'users', uid, 'tasks')
+}
+
+export function subscribeTasks(callback: (tasks: Task[]) => void) {
+  const ref = getTasksRef()
+  if (!ref) {
+    callback([])
+    return () => {}
+  }
+  const q = query(ref, orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Task[]
+    callback(tasks)
+  })
+}
+
+export function subscribeTodayTasks(callback: (tasks: Task[]) => void) {
+  const ref = getTasksRef()
+  if (!ref) {
+    callback([])
+    return () => {}
+  }
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
+
+  const q = query(
+    ref,
+    where('dueDate', '>=', Timestamp.fromDate(todayStart)),
+    where('dueDate', '<=', Timestamp.fromDate(todayEnd)),
+  )
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Task[]
+    callback(tasks)
+  })
+}
+
+export async function addTask(data: {
+  title: string
+  description?: string
+  priority?: 'high' | 'medium' | 'low'
+  dueDate?: Date | null
+  dueTime?: string | null
+  categoryId?: string | null
+  projectId?: string | null
+  subItems?: { id: string; text: string; isCompleted: boolean; order: number }[]
+}) {
+  const ref = getTasksRef()
+  if (!ref) return null
+
+  const now = Timestamp.now()
+  return addDoc(ref, {
+    title: data.title,
+    description: data.description || '',
+    projectId: data.projectId || null,
+    priority: data.priority || 'medium',
+    status: 'todo',
+    dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
+    dueTime: data.dueTime || null,
+    categoryId: data.categoryId || null,
+    subItems: data.subItems || [],
+    isCompleted: false,
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+export async function updateTask(taskId: string, data: Partial<Omit<Task, 'id' | 'createdAt'>>) {
+  const ref = getTasksRef()
+  if (!ref) return
+
+  const taskDoc = doc(ref, taskId)
+  await updateDoc(taskDoc, {
+    ...data,
+    updatedAt: Timestamp.now(),
+  })
+}
+
+export async function toggleTaskComplete(taskId: string, isCompleted: boolean, hasDueDate: boolean) {
+  const ref = getTasksRef()
+  if (!ref) return
+
+  const willComplete = !isCompleted
+  const now = Timestamp.now()
+  const nowDate = now.toDate()
+  const completedTime = willComplete
+    ? `${String(nowDate.getHours()).padStart(2, '0')}:${String(nowDate.getMinutes()).padStart(2, '0')}`
+    : null
+
+  const updates: Record<string, unknown> = {
+    isCompleted: willComplete,
+    status: willComplete ? 'done' : 'todo',
+    completedAt: willComplete ? now : null,
+    completedTime,
+    updatedAt: now,
+  }
+
+  // 마감일 없이 완료 체크하면 오늘 날짜로 자동 설정
+  if (willComplete && !hasDueDate) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    updates.dueDate = Timestamp.fromDate(today)
+  }
+
+  const taskDoc = doc(ref, taskId)
+  await updateDoc(taskDoc, updates)
+}
+
+export async function toggleSubItem(
+  taskId: string,
+  subItems: { id: string; text: string; isCompleted: boolean; order: number }[],
+  subItemId: string,
+  hasDueDate: boolean,
+) {
+  const ref = getTasksRef()
+  if (!ref) return
+
+  const updated = subItems.map((s) =>
+    s.id === subItemId ? { ...s, isCompleted: !s.isCompleted } : s
+  )
+  const allDone = updated.length > 0 && updated.every((s) => s.isCompleted)
+  const now = Timestamp.now()
+
+  const updates: Record<string, unknown> = {
+    subItems: updated,
+    updatedAt: now,
+  }
+
+  if (allDone) {
+    const nowDate = now.toDate()
+    updates.isCompleted = true
+    updates.status = 'done'
+    updates.completedAt = now
+    updates.completedTime = `${String(nowDate.getHours()).padStart(2, '0')}:${String(nowDate.getMinutes()).padStart(2, '0')}`
+    if (!hasDueDate) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      updates.dueDate = Timestamp.fromDate(today)
+    }
+  } else {
+    // 체크리스트 항목 하나라도 해제하면 task도 미완료로
+    updates.isCompleted = false
+    updates.status = 'todo'
+    updates.completedAt = null
+    updates.completedTime = null
+  }
+
+  const taskDoc = doc(ref, taskId)
+  await updateDoc(taskDoc, updates)
+}
+
+export async function deleteTask(taskId: string) {
+  const ref = getTasksRef()
+  if (!ref) return
+
+  await deleteDoc(doc(ref, taskId))
+}

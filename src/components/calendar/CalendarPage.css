@@ -1,0 +1,205 @@
+/* 이동 모드 배너 */
+.move-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: var(--color-primary);
+  border-radius: 12px;
+  box-shadow: var(--neu-convex-sm);
+  animation: pulse-bg 1.5s ease-in-out infinite;
+}
+
+.move-banner-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #5a5a3a;
+  flex: 1;
+}
+
+.move-cancel-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #5a5a3a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes pulse-bg {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.cal-view-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.view-toggle-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.view-toggle-btn.active {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: var(--neu-convex-sm);
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-nav-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.cal-nav-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 100px;
+  text-align: center;
+}
+
+.cal-daily-card {
+  margin-top: 12px;
+}
+
+/* iPhone-style week strip */
+.week-strip {
+  margin-bottom: 12px;
+  background: var(--color-bg);
+  border-radius: 16px;
+  box-shadow: var(--neu-convex);
+  padding: 10px 4px;
+}
+
+.week-strip-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.ws-weekday {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  padding: 4px 0;
+}
+
+.ws-weekday.sun { color: #FF8A80; }
+.ws-weekday.sat { color: #64B5F6; }
+
+.week-strip-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.ws-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.ws-day:active {
+  background: var(--color-divider);
+}
+
+.ws-num {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text);
+  border-radius: 10px;
+}
+
+.ws-num.sun { color: #FF8A80; }
+.ws-num.sat { color: #64B5F6; }
+
+.ws-today .ws-num {
+  background: var(--color-text);
+  color: #fff;
+  font-weight: 700;
+}
+
+.ws-selected .ws-num {
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-weight: 700;
+  box-shadow: var(--neu-convex-sm);
+}
+
+.ws-today.ws-selected .ws-num {
+  background: var(--color-primary);
+}
+
+.ws-dots {
+  display: flex;
+  gap: 3px;
+  height: 5px;
+}
+
+.ws-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.ws-dot-event { background: #64B5F6; }
+.ws-dot-task { background: #FF8A80; }
+
+.day-view-date-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 10px;
+  text-align: center;
+}

@@ -1,0 +1,116 @@
+:root {
+  /* Pastel palette */
+  --color-pink: #FFD1DC;
+  --color-blue: #C5D5F5;
+  --color-green: #C8E6C9;
+  --color-purple: #D1C4E9;
+  --color-orange: #FFE0B2;
+  --color-yellow: #FFF9C4;
+  --color-mint: #B2DFDB;
+  --color-peach: #FFCCBC;
+
+  /* Priority */
+  --priority-high: #FF8A80;
+  --priority-medium: #FFD54F;
+  --priority-low: #81C784;
+
+  /* Brand - Butter & Gray */
+  --color-primary: #EFDE9C;
+  --color-primary-light: #F5EBC0;
+  --color-primary-dark: #D4C47A;
+  --color-accent: #EFDE9C;
+  --color-icon: #727272;
+
+  /* Neutral - Cool Gray */
+  --color-bg: #F6F6F6;
+  --color-bg-secondary: #EFEFEF;
+  --color-surface: #F6F6F6;
+  --color-text: #3A3A3A;
+  --color-text-secondary: #727272;
+  --color-text-tertiary: #A0A0A0;
+  --color-border: #E0E0E0;
+  --color-divider: rgba(0, 0, 0, 0.05);
+
+  /* Semantic */
+  --color-success: #81C784;
+  --color-warning: #FFD54F;
+  --color-error: #FF8A80;
+  --color-info: #90CAF9;
+
+  /* Neumorphism */
+  --neu-shadow-dark: #dcdcdc;
+  --neu-shadow-light: #ffffff;
+  --neu-convex: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+  --neu-concave: inset 2px 2px 4px var(--neu-shadow-dark), inset -2px -2px 4px var(--neu-shadow-light);
+  --neu-convex-sm: 2px 2px 4px var(--neu-shadow-dark), -2px -2px 4px var(--neu-shadow-light);
+
+  /* Glassmorphism (kept for compatibility) */
+  --glass-bg: var(--color-bg);
+  --glass-bg-strong: var(--color-bg);
+  --glass-border: transparent;
+  --glass-blur: 0px;
+  --glass-shadow: none;
+  --glass-shadow-lg: none;
+
+  /* Layout */
+  --max-width: 430px;
+  --tab-bar-height: 72px;
+  --header-height: 56px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+                 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-md: 17px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 28px;
+  --font-size-3xl: 34px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 40px;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* Transition */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --color-bg: #1A1A1A;
+  --color-bg-secondary: #222222;
+  --color-surface: #1A1A1A;
+  --color-text: #E8E8E8;
+  --color-text-secondary: #A0A0A0;
+  --color-text-tertiary: #6B6B6B;
+  --color-border: #333333;
+  --color-divider: rgba(255, 255, 255, 0.06);
+
+  --neu-shadow-dark: #111111;
+  --neu-shadow-light: #252525;
+
+  --glass-bg: var(--color-bg);
+  --glass-bg-strong: var(--color-bg);
+  --glass-border: transparent;
+  --glass-shadow: none;
+  --glass-shadow-lg: none;
+}

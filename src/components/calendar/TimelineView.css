@@ -1,0 +1,273 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 종일 이벤트 */
+.tl-allday {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 4px;
+}
+
+.tl-allday-item {
+  padding: 8px 12px;
+  border-left: 3px solid #64B5F6;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tl-allday-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.tl-allday-loc {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* 시간 없는 태스크 / 미완료 루틴 */
+.tl-untimed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 4px;
+}
+
+.tl-untimed-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.tl-untimed-title {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.tl-done {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+/* 타임라인 그리드 */
+.tl-grid {
+  position: relative;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.tl-grid-inner {
+  position: relative;
+}
+
+/* 시간 행 */
+.tl-hour-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.tl-hour-label {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-align: right;
+  padding-right: 10px;
+  transform: translateY(-7px);
+}
+
+.tl-hour-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-divider);
+}
+
+/* 이벤트 블록 (카테고리 헤더 + 중첩 태스크) */
+.tl-event-block {
+  position: absolute;
+  left: 66px;
+  right: 8px;
+  border-left: 3px solid;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.tl-event-header {
+  padding: 8px 10px 4px;
+  cursor: pointer;
+}
+
+.tl-event-header-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tl-event-cat-icon {
+  font-size: 13px;
+}
+
+.tl-event-cat-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.tl-event-title-right {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.tl-event-time {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  padding: 0 10px 4px;
+}
+
+/* 이벤트 내 태스크 */
+.tl-event-tasks {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.tl-nested-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.tl-nested-task:last-child {
+  border-bottom: none;
+}
+
+.tl-nested-time {
+  font-size: 11px;
+  color: var(--color-primary);
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 52px;
+}
+
+.tl-nested-cat {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.tl-nested-title {
+  font-size: 13px;
+  color: var(--color-text);
+  flex: 1;
+}
+
+/* 체크 버튼 */
+.tl-task-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.tl-task-check.done {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+/* 단독 태스크 행 */
+.tl-task-row {
+  position: absolute;
+  left: 66px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  z-index: 2;
+  background: var(--color-surface);
+  border-radius: 6px;
+  border: 1px solid var(--color-divider);
+}
+
+.tl-task-title {
+  font-size: 13px;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.tl-task-cat {
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  color: #333;
+}
+
+/* 루틴 아이템 (상단 미완료) */
+.tl-routine-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.tl-routine-icon {
+  color: var(--color-icon);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 루틴 (타임라인 배치) */
+.tl-routine-row {
+  position: absolute;
+  left: 66px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  z-index: 2;
+  background: rgba(239, 222, 156, 0.15);
+  border-radius: 6px;
+  border: 1px solid rgba(239, 222, 156, 0.3);
+}
+
+.tl-empty {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  padding: 40px 0;
+}

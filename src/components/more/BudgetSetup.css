@@ -1,0 +1,78 @@
+.budget-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.budget-setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.budget-setup-label {
+  font-size: 14px;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.budget-setup-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 10px;
+  width: 140px;
+}
+
+.budget-setup-won {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.budget-setup-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text);
+  text-align: right;
+  outline: none;
+  width: 80px;
+}
+
+.budget-setup-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.budget-setup-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-divider);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.budget-setup-total-amount {
+  color: var(--color-text);
+}
+
+.budget-setup-save {
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: var(--color-primary);
+  box-shadow: var(--neu-convex-sm);
+  color: #5a5a3a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+}

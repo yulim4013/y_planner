@@ -1,0 +1,225 @@
+.txn-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 수입/지출 토글 */
+.txn-type-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.txn-type-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.txn-type-btn.active {
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  font-weight: 600;
+}
+
+.txn-type-btn.active.income {
+  color: #2E7D32;
+}
+
+.txn-type-btn.active.expense {
+  color: #D32F2F;
+}
+
+.txn-type-btn.active.transfer {
+  color: #1565C0;
+}
+
+/* 고정/변동 토글 */
+.txn-subtype-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.txn-sub-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.txn-sub-btn.active {
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 카테고리 칩 */
+.txn-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.txn-cat-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-divider);
+  border-radius: 20px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.txn-cat-btn.active {
+  color: #333;
+  font-weight: 600;
+}
+
+/* 금액 입력 */
+.txn-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 12px;
+}
+
+.txn-currency {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.txn-amount-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text);
+  outline: none;
+}
+
+.txn-amount-input::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+/* 이체 계좌 선택 */
+.txn-transfer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.txn-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.txn-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  width: 60px;
+}
+
+.txn-select {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  color: var(--color-text);
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.txn-transfer-arrow {
+  text-align: center;
+  font-size: 18px;
+  color: var(--color-text-tertiary);
+  padding: 2px 0;
+}
+
+/* 결제수단 */
+.txn-payment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 메모, 날짜 입력 */
+.txn-memo-input,
+.txn-date-input {
+  padding: 10px 14px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  color: var(--color-text);
+  outline: none;
+}
+
+.txn-memo-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* 버튼 */
+.txn-form-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.txn-form-delete {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #FF8A8033;
+  color: #D32F2F;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.txn-form-submit {
+  flex: 2;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: var(--color-primary);
+  box-shadow: var(--neu-convex-sm);
+  color: #5a5a3a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.txn-form-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

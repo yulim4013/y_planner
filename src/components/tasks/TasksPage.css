@@ -1,0 +1,88 @@
+.task-controls {
+  margin-bottom: 14px;
+}
+
+.task-sort {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.sort-btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sort-btn.active {
+  background: var(--color-divider);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.task-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.filter-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.filter-btn.active {
+  background: var(--color-primary);
+  box-shadow: var(--neu-convex-sm);
+  color: #5a5a3a;
+  font-weight: 600;
+}
+
+.filter-overdue {
+  color: #D32F2F;
+}
+
+.filter-overdue.active {
+  background: #FF8A80;
+  box-shadow: var(--neu-convex-sm);
+  color: #fff;
+}
+
+.cat-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.cat-group-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.cat-group-none {
+  background: var(--color-divider);
+  color: var(--color-text-secondary);
+}
+
+.cat-group-count {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}

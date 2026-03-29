@@ -1,0 +1,450 @@
+/* 월 네비게이션 */
+.budget-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.budget-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.budget-nav-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.budget-nav-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 100px;
+  text-align: center;
+}
+
+/* 자산 관리 */
+.asset-card {
+  margin-bottom: 12px;
+}
+
+.asset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.asset-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.asset-add-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.asset-total-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.asset-total-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.asset-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.asset-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.asset-item:last-child { border-bottom: none; }
+
+.asset-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.asset-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.asset-name {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.asset-type {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.asset-balance {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.asset-balance.negative {
+  color: #D32F2F;
+}
+
+/* 요약 카드 */
+.budget-summary {
+  margin-bottom: 12px;
+}
+
+.budget-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.budget-summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 4px;
+}
+
+.budget-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.budget-value {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.budget-value.income {
+  color: #2E7D32;
+}
+
+.budget-value.expense {
+  color: #D32F2F;
+}
+
+.budget-detail-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.budget-detail {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* 변동지출 예산 카드 */
+.budget-progress-card {
+  margin-bottom: 12px;
+}
+
+.budget-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.budget-progress-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.budget-setup-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 전체 예산 바 */
+.budget-total-bar {
+  margin-bottom: 14px;
+}
+
+.budget-total-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.budget-over {
+  color: #D32F2F;
+  font-weight: 600;
+}
+
+.budget-pct {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.budget-total-amounts {
+  font-size: 13px;
+}
+
+.budget-actual {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.budget-slash {
+  color: var(--color-text-tertiary);
+}
+
+.budget-target {
+  color: var(--color-text-tertiary);
+}
+
+.budget-remain {
+  text-align: right;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 6px;
+}
+
+.budget-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  overflow: hidden;
+}
+
+.budget-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.budget-bar-fill.over {
+  background: #FF8A80;
+}
+
+/* 카테고리별 예산 */
+.budget-cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.budget-cat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.budget-cat-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-cat-name {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.budget-cat-amounts {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.budget-cat-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  overflow: hidden;
+}
+
+.budget-cat-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.budget-cat-fill.over {
+  background: #FF8A80 !important;
+}
+
+.budget-empty-msg {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+/* Google Sheets 버튼 */
+.sheets-sync-btn {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sheets-sync-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.sheets-sync-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 거래 내역 */
+.txn-group {
+  margin-bottom: 10px;
+}
+
+.txn-group-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  margin-bottom: 8px;
+}
+
+.txn-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.txn-item:last-child {
+  border-bottom: none;
+}
+
+.txn-cat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.txn-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.txn-item-cat {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.txn-item-memo {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.txn-item-amount {
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.txn-item-amount.income {
+  color: #2E7D32;
+}
+
+.txn-item-amount.expense {
+  color: #D32F2F;
+}
+
+.txn-item-amount.transfer {
+  color: #1565C0;
+}
+
+/* 빈 상태 */
+.budget-empty {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  padding: 40px 0;
+}

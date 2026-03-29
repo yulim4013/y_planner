@@ -1,0 +1,63 @@
+.login-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--color-bg);
+}
+
+.login-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: var(--space-2xl);
+}
+
+.login-logo {
+  font-size: 64px;
+  margin-bottom: var(--space-lg);
+}
+
+.login-title {
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+.login-subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-3xl);
+}
+
+.login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-2xl);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.login-btn:active {
+  transform: scale(0.96);
+  box-shadow: var(--neu-concave);
+}
+
+.login-btn svg {
+  flex-shrink: 0;
+}

@@ -1,0 +1,39 @@
+.add-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.add-option-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.add-option-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.add-option-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  flex-shrink: 0;
+}
+
+.add-option-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+}

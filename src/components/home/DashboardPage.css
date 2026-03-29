@@ -1,0 +1,658 @@
+.dashboard-date {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+/* 수면 */
+.sleep-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: var(--space-md);
+  background: var(--color-bg);
+  border-radius: 12px;
+  box-shadow: var(--neu-convex-sm);
+}
+
+.sleep-duration {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sleep-detail {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+/* 시간 통계 */
+.time-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-md);
+}
+
+.time-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+}
+
+.time-stat-icon {
+  font-size: 12px;
+}
+
+.time-stat-label {
+  color: #333;
+  font-weight: 500;
+}
+
+.time-stat-value {
+  color: #555;
+  font-weight: 600;
+}
+
+/* 섹션 */
+.dash-section {
+  margin-bottom: var(--space-lg);
+}
+
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* 섹션 아이콘 - 뉴모피즘 볼록 */
+.section-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+}
+
+.dash-section-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.dash-section-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* 카드 */
+.dash-card {
+  background: var(--color-bg);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.dash-empty {
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  padding: var(--space-lg) 0;
+}
+
+/* 루틴 */
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.routine-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.routine-item:last-child {
+  border-bottom: none;
+}
+
+.routine-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.routine-check.done {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.routine-icon {
+  flex-shrink: 0;
+  color: var(--color-icon);
+  display: flex;
+  align-items: center;
+}
+
+.routine-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.routine-title.done-text {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+.routine-delete {
+  color: var(--color-text-tertiary);
+  font-size: 18px;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.routine-delete:active {
+  opacity: 1;
+}
+
+/* 물 마시기 루틴 - 인라인 바 */
+.water-routine {
+  width: 100%;
+}
+
+.water-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.water-drop-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: transform 0.1s ease;
+}
+
+.water-drop-btn:active {
+  transform: scale(0.85);
+}
+
+.water-inline-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.water-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  overflow: hidden;
+}
+
+.water-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #87CEEB;
+  transition: width 0.3s ease;
+}
+
+.water-ml {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.water-undo {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  background: none;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+/* 루틴 추가 폼 */
+.routine-add-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: center;
+}
+
+.routine-form {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.routine-icon-picker {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.routine-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  cursor: pointer;
+  border: none;
+  color: var(--color-text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.routine-icon-btn.selected {
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  background: var(--color-primary);
+}
+
+.routine-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.routine-input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.routine-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* 물 목표 입력 */
+.water-goal-row {
+  margin-top: 4px;
+}
+
+.water-goal-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.water-goal-input {
+  width: 80px;
+  flex: 0;
+  text-align: center;
+}
+
+.water-goal-unit {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+/* 루틴 날짜 입력 */
+.routine-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.routine-date-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  width: 42px;
+}
+
+.routine-date-input {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+}
+
+.routine-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.routine-manage-btn {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  flex-shrink: 0;
+}
+
+/* 루틴 템플릿 관리 */
+.routine-template-list {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.routine-template-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  margin-bottom: 8px;
+}
+
+.routine-template-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.routine-template-item:last-child {
+  border-bottom: none;
+}
+
+.routine-template-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.routine-template-title {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.routine-template-dates {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.routine-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.routine-add-confirm {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.routine-add-cancel {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* 일정 */
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-event-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.dash-event-item:last-child {
+  border-bottom: none;
+}
+
+.dash-ev-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.dash-ev-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-ev-title {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.dash-ev-detail {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* 할 일 */
+.dash-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.dash-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.dash-task-item:last-child {
+  border-bottom: none;
+}
+
+.dash-task-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.dash-task-check.done {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.dash-task-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.dash-task-title.done-text {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+.dash-task-time {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* 카테고리 카드 (업무/공부/운동) */
+.dash-cat-cards {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-md);
+}
+
+.dash-cat-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+}
+
+.dash-cat-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-icon);
+  flex-shrink: 0;
+}
+
+.dash-cat-name {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.dash-cat-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-left: auto;
+}
+
+/* 지출 항목 */
+.dash-expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-expense-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.dash-expense-item:last-child {
+  border-bottom: none;
+}
+
+.dash-expense-cat {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.dash-expense-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dash-expense-memo {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.dash-expense-category {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.dash-expense-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.dash-expense-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 4px;
+}
+
+.dash-expense-total-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.dash-expense-total-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}

@@ -1,0 +1,44 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  margin-bottom: var(--space-md);
+  background: var(--color-bg);
+  border-radius: 16px;
+  box-shadow: var(--neu-convex);
+}
+
+.header-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: 1px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-add-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--color-primary);
+  transition: all 0.15s ease;
+}
+
+.header-add-btn:active {
+  box-shadow: var(--neu-concave);
+}

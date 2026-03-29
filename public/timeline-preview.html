@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Timeline Preview</title>
+<style>
+  :root {
+    --color-bg: #F6F6F6;
+    --color-surface: #fff;
+    --color-text: #3A3A3A;
+    --color-text-secondary: #666;
+    --color-text-tertiary: #999;
+    --color-primary: #EFDE9C;
+    --color-divider: #E8E8E8;
+    --color-icon: #727272;
+    --neu-concave: inset 2px 2px 5px rgba(0,0,0,0.08), inset -2px -2px 5px rgba(255,255,255,0.9);
+    --neu-convex-sm: 2px 2px 5px rgba(0,0,0,0.08), -2px -2px 5px rgba(255,255,255,0.9);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--color-text-secondary);
+  }
+
+  .date-label {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  /* 타임라인 그리드 */
+  .tl-grid {
+    position: relative;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tl-grid-inner {
+    position: relative;
+  }
+
+  /* 시간 행 */
+  .tl-hour-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .tl-hour-label {
+    width: 56px;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    text-align: right;
+    padding-right: 10px;
+    transform: translateY(-7px);
+  }
+
+  .tl-hour-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-divider);
+  }
+
+  /* 이벤트 블록 - 카테고리 헤더 역할 */
+  .tl-event-block {
+    position: absolute;
+    left: 66px;
+    right: 8px;
+    border-left: 3px solid;
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .tl-event-header {
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .tl-event-cat-icon {
+    font-size: 13px;
+  }
+
+  .tl-event-cat-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .tl-event-title {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-left: auto;
+  }
+
+  .tl-event-time {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    padding: 0 10px;
+    margin-top: -4px;
+    padding-bottom: 4px;
+  }
+
+  /* 이벤트 내 태스크 목록 */
+  .tl-event-tasks {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .tl-nested-task {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    cursor: pointer;
+    background: rgba(255,255,255,0.3);
+  }
+
+  .tl-nested-task:last-child {
+    border-bottom: none;
+  }
+
+  .tl-task-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background: var(--color-bg);
+    box-shadow: var(--neu-concave);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    padding: 0;
+  }
+
+  .tl-task-check.done {
+    background: var(--color-primary);
+    box-shadow: none;
+  }
+
+  .tl-nested-time {
+    font-size: 11px;
+    color: var(--color-primary);
+    font-weight: 500;
+    flex-shrink: 0;
+    min-width: 52px;
+  }
+
+  .tl-nested-cat {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .tl-nested-title {
+    font-size: 13px;
+    color: var(--color-text);
+    flex: 1;
+  }
+
+  .tl-nested-title.done {
+    text-decoration: line-through;
+    color: var(--color-text-tertiary);
+  }
+
+  /* 단독 태스크 (이벤트 그룹 밖) */
+  .tl-standalone-task {
+    position: absolute;
+    left: 66px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    z-index: 2;
+    background: var(--color-surface);
+    border-radius: 6px;
+    border: 1px solid var(--color-divider);
+    cursor: pointer;
+  }
+
+  .tl-standalone-title {
+    font-size: 13px;
+    color: var(--color-text);
+    flex: 1;
+  }
+
+  .tl-standalone-cat {
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    color: #333;
+  }
+
+  /* 루틴 */
+  .tl-routine-row {
+    position: absolute;
+    left: 66px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    z-index: 2;
+    background: rgba(239,222,156,0.15);
+    border-radius: 6px;
+    border: 1px solid rgba(239,222,156,0.3);
+    font-size: 13px;
+  }
+
+  .tl-routine-icon {
+    color: var(--color-icon);
+    display: flex;
+    align-items: center;
+  }
+
+  .check-svg { display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<div class="date-label">2026년 3월 29일 일요일</div>
+
+<h2>타임라인 프리뷰 (시간축 + 카테고리 그룹)</h2>
+
+<div class="tl-grid">
+  <div class="tl-grid-inner" style="height: 1440px;" id="grid">
+    <!-- 시간 행들 (JS로 생성) -->
+  </div>
+</div>
+
+<script>
+const HOUR_HEIGHT = 60;
+const grid = document.getElementById('grid');
+
+// 시간 라벨 생성
+function getHourLabel(h) {
+  if (h === 0) return '오전 12시';
+  if (h < 12) return `오전 ${h}시`;
+  if (h === 12) return '정오';
+  return `오후 ${h - 12}시`;
+}
+
+for (let h = 0; h < 24; h++) {
+  const row = document.createElement('div');
+  row.className = 'tl-hour-row';
+  row.style.top = `${h * HOUR_HEIGHT}px`;
+  row.innerHTML = `
+    <span class="tl-hour-label">${getHourLabel(h)}</span>
+    <div class="tl-hour-line"></div>
+  `;
+  grid.appendChild(row);
+}
+
+function formatTime(h, m) {
+  const suffix = m ? `:${String(m).padStart(2, '0')}` : '';
+  if (h < 12) return `오전 ${h === 0 ? 12 : h}시${suffix}`;
+  return `오후 ${h === 12 ? 12 : h - 12}시${suffix}`;
+}
+
+function checkSvg(done) {
+  if (!done) return '';
+  return `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// ── 모닝 루틴 (7:30) ──
+const routine1 = document.createElement('div');
+routine1.className = 'tl-routine-row';
+routine1.style.top = `${(7.5) * HOUR_HEIGHT}px`;
+routine1.innerHTML = `
+  <div class="tl-task-check done"><span class="check-svg">${checkSvg(true)}</span></div>
+  <span class="tl-routine-icon">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><polyline points="8 6 12 2 16 6"/></svg>
+  </span>
+  <span style="text-decoration:line-through;color:var(--color-text-tertiary);">모닝루틴</span>
+`;
+grid.appendChild(routine1);
+
+// ── 이벤트 1: 업무 (9:00 ~ 12:00) ──
+const evt1Top = 9 * HOUR_HEIGHT;
+const evt1Height = 3 * HOUR_HEIGHT;
+const evt1 = document.createElement('div');
+evt1.className = 'tl-event-block';
+evt1.style.cssText = `top:${evt1Top}px; min-height:${evt1Height}px; border-left-color:#C5D5F5; background:rgba(197,213,245,0.18);`;
+evt1.innerHTML = `
+  <div class="tl-event-header">
+    <span class="tl-event-cat-icon">💼</span>
+    <span class="tl-event-cat-name">업무</span>
+    <span class="tl-event-title">오전 근무</span>
+  </div>
+  <div class="tl-event-time">${formatTime(9, 0)} ~ ${formatTime(12, 0)}</div>
+  <div class="tl-event-tasks">
+    <div class="tl-nested-task">
+      <div class="tl-task-check done"><span class="check-svg">${checkSvg(true)}</span></div>
+      <span class="tl-nested-time">${formatTime(9, 0)}</span>
+      <span class="tl-nested-cat">KCR2026</span>
+      <span class="tl-nested-title done">회의록 작성</span>
+    </div>
+    <div class="tl-nested-task">
+      <div class="tl-task-check done"><span class="check-svg">${checkSvg(true)}</span></div>
+      <span class="tl-nested-time">${formatTime(10, 10)}</span>
+      <span class="tl-nested-cat">KCR2026</span>
+      <span class="tl-nested-title done">뉴스카드 제작</span>
+    </div>
+    <div class="tl-nested-task">
+      <div class="tl-task-check"></div>
+      <span class="tl-nested-time">${formatTime(11, 0)}</span>
+      <span class="tl-nested-cat">기획</span>
+      <span class="tl-nested-title">프레젠테이션 준비</span>
+    </div>
+  </div>
+`;
+grid.appendChild(evt1);
+
+// ── 단독 태스크 (12:30) - 그룹 밖 ──
+const task1 = document.createElement('div');
+task1.className = 'tl-standalone-task';
+task1.style.top = `${12.5 * HOUR_HEIGHT}px`;
+task1.innerHTML = `
+  <div class="tl-task-check"></div>
+  <span class="tl-standalone-title">점심 약속 확인</span>
+  <span class="tl-standalone-cat" style="background:#FFE0B2">📋</span>
+`;
+grid.appendChild(task1);
+
+// ── 이벤트 2: 공부 (14:00 ~ 16:00) ──
+const evt2Top = 14 * HOUR_HEIGHT;
+const evt2Height = 2 * HOUR_HEIGHT;
+const evt2 = document.createElement('div');
+evt2.className = 'tl-event-block';
+evt2.style.cssText = `top:${evt2Top}px; min-height:${evt2Height}px; border-left-color:#C8E6C9; background:rgba(200,230,201,0.18);`;
+evt2.innerHTML = `
+  <div class="tl-event-header">
+    <span class="tl-event-cat-icon">📚</span>
+    <span class="tl-event-cat-name">공부</span>
+    <span class="tl-event-title">오후 자습</span>
+  </div>
+  <div class="tl-event-time">${formatTime(14, 0)} ~ ${formatTime(16, 0)}</div>
+  <div class="tl-event-tasks">
+    <div class="tl-nested-task">
+      <div class="tl-task-check done"><span class="check-svg">${checkSvg(true)}</span></div>
+      <span class="tl-nested-time">${formatTime(14, 0)}</span>
+      <span class="tl-nested-cat">React</span>
+      <span class="tl-nested-title done">TypeScript 강의 수강</span>
+    </div>
+    <div class="tl-nested-task">
+      <div class="tl-task-check"></div>
+      <span class="tl-nested-time">${formatTime(15, 30)}</span>
+      <span class="tl-nested-cat">React</span>
+      <span class="tl-nested-title">실습 프로젝트 진행</span>
+    </div>
+  </div>
+`;
+grid.appendChild(evt2);
+
+// ── 이벤트 3: 운동 (17:00 ~ 18:00) ──
+const evt3Top = 17 * HOUR_HEIGHT;
+const evt3Height = 1 * HOUR_HEIGHT;
+const evt3 = document.createElement('div');
+evt3.className = 'tl-event-block';
+evt3.style.cssText = `top:${evt3Top}px; min-height:${evt3Height}px; border-left-color:#FFD1DC; background:rgba(255,209,220,0.18);`;
+evt3.innerHTML = `
+  <div class="tl-event-header">
+    <span class="tl-event-cat-icon">🏃</span>
+    <span class="tl-event-cat-name">운동</span>
+    <span class="tl-event-title">헬스장</span>
+  </div>
+  <div class="tl-event-time">${formatTime(17, 0)} ~ ${formatTime(18, 0)}</div>
+`;
+grid.appendChild(evt3);
+
+// ── 나이트 루틴 (22:00) ──
+const routine2 = document.createElement('div');
+routine2.className = 'tl-routine-row';
+routine2.style.top = `${22 * HOUR_HEIGHT}px`;
+routine2.innerHTML = `
+  <div class="tl-task-check"></div>
+  <span class="tl-routine-icon">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+  </span>
+  <span>나이트루틴</span>
+`;
+grid.appendChild(routine2);
+
+// 초기 스크롤 위치
+document.querySelector('.tl-grid').scrollTop = 7 * HOUR_HEIGHT;
+</script>
+
+</body>
+</html>

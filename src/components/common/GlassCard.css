@@ -1,0 +1,8 @@
+.glass-card {
+  padding: var(--space-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}

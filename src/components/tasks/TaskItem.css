@@ -1,0 +1,153 @@
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+.task-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  margin-top: 1px;
+}
+
+.task-checkbox.done {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-title {
+  flex: 1;
+  font-size: 15px;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.task-completed .task-title {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.task-due {
+  color: var(--color-text-secondary);
+}
+
+.task-overdue {
+  color: #FF8A80;
+  font-weight: 600;
+}
+
+.task-priority {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.priority-high {
+  background: #FF8A8033;
+  color: #D32F2F;
+}
+
+.priority-medium {
+  background: #FFD54F33;
+  color: #F57F17;
+}
+
+.priority-low {
+  background: #81C78433;
+  color: #2E7D32;
+}
+
+/* Sub items in list */
+.task-subitems {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-subitem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.subitem-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+}
+
+.subitem-check.done {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.subitem-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.subitem-done .subitem-text {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+.task-completed .task-subitems {
+  opacity: 0.5;
+}
+
+.task-category-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 2px;
+}
