@@ -8,10 +8,8 @@
 .bottom-sheet {
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: var(--max-width);
+  left: 0;
+  right: 0;
   max-height: 90dvh;
   z-index: 201;
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
