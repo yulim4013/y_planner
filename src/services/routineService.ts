@@ -144,20 +144,21 @@ export function subscribeRoutinesByDate(date: string, callback: (routines: Routi
   })
 }
 
-// 하위 호환: 기존 방식으로 루틴 직접 추가 (날짜 하나)
+// 루틴 인스턴스 직접 추가 (templateId 연결 가능)
 export async function addRoutine(data: {
   iconId: string
   title: string
   date: string
   order: number
   targetMl?: number
+  templateId?: string
 }) {
   const ref = getRoutinesRef()
   if (!ref) return null
 
   const now = Timestamp.now()
   const routineData: Record<string, unknown> = {
-    templateId: '',
+    templateId: data.templateId || '',
     iconId: data.iconId,
     title: data.title,
     isCompleted: false,

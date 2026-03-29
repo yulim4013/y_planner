@@ -5,13 +5,14 @@ import { formatDate } from '../../utils/dateUtils'
 import { subscribeTasks, toggleTaskComplete } from '../../services/taskService'
 import { subscribeEvents } from '../../services/eventService'
 import {
-  subscribeRoutinesByDate, addRoutineTemplate,
+  subscribeRoutinesByDate, addRoutineTemplate, addRoutine,
   toggleRoutineComplete, deleteRoutine, incrementWater, decrementWater,
   subscribeActiveTemplates, deleteRoutineTemplate,
 } from '../../services/routineService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
+import EventForm from '../calendar/EventForm'
 import { useUIStore } from '../../store/uiStore'
 import { formatNumber } from '../../utils/currencyUtils'
 import { format } from 'date-fns'
@@ -81,6 +82,8 @@ export default function DashboardPage() {
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
   const [showRoutineForm, setShowRoutineForm] = useState(false)
   const [showTemplateList, setShowTemplateList] = useState(false)
   const [selectedIconId, setSelectedIconId] = useState(ROUTINE_ICONS[0].id)
@@ -154,14 +157,26 @@ export default function DashboardPage() {
   const handleAddRoutine = async () => {
     if (!routineTitle.trim()) return
     const isWater = selectedIconId === 'water'
-    await addRoutineTemplate({
+    const targetMl = isWater ? parseInt(waterGoal) || 2000 : undefined
+    const tmplDoc = await addRoutineTemplate({
       iconId: selectedIconId,
       title: routineTitle.trim(),
       order: templates.length,
       startDate,
       endDate,
-      targetMl: isWater ? parseInt(waterGoal) || 2000 : undefined,
+      targetMl,
     })
+    // 오늘이 범위 안이면 루틴 인스턴스도 즉시 생성
+    if (tmplDoc && startDate <= todayStr && endDate >= todayStr) {
+      await addRoutine({
+        templateId: tmplDoc.id,
+        iconId: selectedIconId,
+        title: routineTitle.trim(),
+        date: todayStr,
+        order: templates.length,
+        targetMl,
+      })
+    }
     setRoutineTitle('')
     setSelectedIconId(ROUTINE_ICONS[0].id)
     setWaterGoal('2000')
@@ -429,22 +444,27 @@ export default function DashboardPage() {
             <p className="dash-empty">오늘 일정이 없습니다</p>
           ) : (
             <div className="event-list">
-              {todayEvents.map((event) => (
-                <div key={event.id} className="dash-event-item">
-                  <div className="dash-ev-bar" />
-                  <div className="dash-ev-info">
-                    <span className="dash-ev-title">{event.title}</span>
-                    <span className="dash-ev-detail">
-                      {event.isAllDay
-                        ? '종일'
-                        : event.startTime
-                          ? `${formatTimeKorean(event.startTime)}${event.endTime ? ` ~ ${formatTimeKorean(event.endTime)}` : ''}`
-                          : ''}
-                      {event.location ? ` · ${event.location}` : ''}
-                    </span>
+              {todayEvents.map((event) => {
+                const evCat = event.categoryId ? categories.find((c) => c.id === event.categoryId) : null
+                const isNoTitle = !event.title || event.title === '(제목 없음)'
+                return (
+                  <div key={event.id} className="dash-event-item" onClick={() => { setEditEvent(event); setEventFormOpen(true) }}>
+                    <div className="dash-ev-bar" style={evCat ? { background: evCat.color } : {}} />
+                    <div className="dash-ev-info">
+                      {evCat && <span className="dash-ev-category" style={{ color: evCat.color }}>{evCat.icon} {evCat.name}</span>}
+                      {!isNoTitle && <span className="dash-ev-title">{event.title}</span>}
+                      <span className="dash-ev-detail">
+                        {event.isAllDay
+                          ? '종일'
+                          : event.startTime
+                            ? `${formatTimeKorean(event.startTime)}${event.endTime ? ` ~ ${formatTimeKorean(event.endTime)}` : ''}`
+                            : ''}
+                        {event.location ? ` · ${event.location}` : ''}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -544,6 +564,13 @@ export default function DashboardPage() {
           </div>
         )
       })()}
+
+      <EventForm
+        isOpen={eventFormOpen}
+        onClose={() => { setEventFormOpen(false); setEditEvent(null) }}
+        editEvent={editEvent}
+        defaultDate={today}
+      />
     </div>
   )
 }

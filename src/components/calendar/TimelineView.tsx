@@ -132,7 +132,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 onClick={() => onEditEvent(event)}
                 style={{ borderLeftColor: cat?.color || '#64B5F6', background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.1)' }}
               >
-                <span className="tl-allday-title">{event.title}</span>
+                <span className="tl-allday-title">
+                  {(!event.title || event.title === '(제목 없음)') ? (cat ? `${cat.icon} ${cat.name}` : '') : event.title}
+                </span>
                 {event.location && <span className="tl-allday-loc">{event.location}</span>}
               </div>
             )
@@ -218,7 +220,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   <div className="tl-event-header-top">
                     <span className="tl-event-cat-icon">{eventCat?.icon || ''}</span>
                     <span className="tl-event-cat-name">{eventCat?.name || event.title}</span>
-                    <span className="tl-event-title-right">{event.title}</span>
+                    {event.title && event.title !== '(제목 없음)' && (
+                      <span className="tl-event-title-right">{event.title}</span>
+                    )}
                   </div>
                   <span className="tl-event-time">
                     {formatTimeKorean(event.startTime!)} ~ {event.endTime ? formatTimeKorean(event.endTime) : ''}

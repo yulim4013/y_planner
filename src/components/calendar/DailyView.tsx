@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { toggleTaskComplete, toggleSubItem } from '../../services/taskService'
@@ -16,32 +16,35 @@ interface DailyViewProps {
   onMoveItem?: (type: 'task' | 'event', id: string) => void
 }
 
-function useLongPress(callback: () => void, ms = 500) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const movedRef = useRef(false)
-
-  const start = useCallback(() => {
-    movedRef.current = false
-    timerRef.current = setTimeout(() => {
-      if (!movedRef.current) callback()
-    }, ms)
-  }, [callback, ms])
-
-  const cancel = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = null
-  }, [])
-
-  const move = useCallback(() => {
-    movedRef.current = true
-    cancel()
-  }, [cancel])
+// 롱프레스 핸들러 (훅이 아닌 일반 함수 - .map() 안에서 안전하게 사용 가능)
+function createLongPressHandlers(callback: () => void, ms = 500) {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let startX = 0
+  let startY = 0
 
   return {
-    onPointerDown: start,
-    onPointerUp: cancel,
-    onPointerLeave: cancel,
-    onPointerMove: move,
+    onPointerDown: (e: React.PointerEvent) => {
+      startX = e.clientX
+      startY = e.clientY
+      timer = setTimeout(() => {
+        callback()
+        timer = null
+      }, ms)
+    },
+    onPointerUp: () => {
+      if (timer) { clearTimeout(timer); timer = null }
+    },
+    onPointerLeave: () => {
+      if (timer) { clearTimeout(timer); timer = null }
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      // 10px 이상 움직여야 취소 (모바일 터치 떨림 방지)
+      const dx = e.clientX - startX
+      const dy = e.clientY - startY
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (timer) { clearTimeout(timer); timer = null }
+      }
+    },
   }
 }
 
@@ -89,22 +92,22 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
           </div>
           {sortedEvents.map((event) => {
             const eCat = getCat(event.categoryId)
-            const lp = useLongPress(() => {
-              if (onMoveItem) {
-                setLongPressId(event.id)
-                onMoveItem('event', event.id)
-              }
-            })
+            const isNoTitle = !event.title || event.title === '(제목 없음)'
+            const lp = onMoveItem ? createLongPressHandlers(() => {
+              setLongPressId(event.id)
+              onMoveItem('event', event.id)
+            }) : {}
             return (
               <div
                 key={event.id}
                 className={`daily-event ${longPressId === event.id ? 'dragging' : ''}`}
                 onClick={() => onEditEvent(event)}
-                {...(onMoveItem ? lp : {})}
+                {...lp}
               >
                 <div className="event-color-bar" style={eCat ? { background: eCat.color } : {}} />
                 <div className="event-info">
-                  <span className="event-title">{event.title}</span>
+                  {eCat && <span className="event-category" style={{ color: eCat.color }}>{eCat.icon} {eCat.name}</span>}
+                  {!isNoTitle && <span className="event-title">{event.title}</span>}
                   <span className="event-time">
                     {event.isAllDay ? '종일' : `${event.startTime || ''} ${event.endTime ? `~ ${event.endTime}` : ''}`}
                   </span>
@@ -136,18 +139,16 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
               : task.dueTime
                 ? formatTimeStr(task.dueTime)
                 : null
-            const taskLp = useLongPress(() => {
-              if (onMoveItem) {
-                setLongPressId(task.id)
-                onMoveItem('task', task.id)
-              }
-            })
+            const taskLp = onMoveItem ? createLongPressHandlers(() => {
+              setLongPressId(task.id)
+              onMoveItem('task', task.id)
+            }) : {}
             return (
               <div key={task.id} className={`daily-task ${task.isCompleted ? 'daily-task-done' : ''} ${longPressId === task.id ? 'dragging' : ''}`}>
                 <div
                   className="daily-task-header"
                   onClick={() => onEditTask(task)}
-                  {...(onMoveItem ? taskLp : {})}
+                  {...taskLp}
                 >
                   <button
                     className={`daily-task-check ${task.isCompleted ? 'done' : ''}`}
