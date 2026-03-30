@@ -103,3 +103,35 @@
   width: 32px;
   flex-shrink: 0;
 }
+
+/* ==================== PC 데스크톱: 중앙 모달 ==================== */
+@media (min-width: 768px) {
+  .bottom-sheet-overlay {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  /* 일반 바텀시트 → 가운데 좁은 모달 (하단 슬라이드 유지) */
+  .bottom-sheet {
+    left: 50%;
+    right: auto;
+    width: 480px;
+    margin-left: -240px;
+    max-height: 70vh;
+    border-radius: var(--radius-2xl);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  }
+
+  /* 풀스크린 → 가운데 큰 모달 (하단 슬라이드 유지) */
+  .bottom-sheet-full {
+    top: auto;
+    left: 50%;
+    right: auto;
+    bottom: 0;
+    width: 600px;
+    margin-left: -300px;
+    max-height: 92vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
+    padding-top: var(--space-sm);
+  }
+}

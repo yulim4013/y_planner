@@ -49,3 +49,59 @@
   color: var(--color-text-tertiary);
   transition: var(--transition-fast);
 }
+
+/* ==================== PC 데스크톱: 사이드바 ==================== */
+@media (min-width: 768px) {
+  .bottom-tab-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    max-width: none;
+    transform: none;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    padding: 24px 12px;
+    padding-bottom: 24px;
+    gap: 4px;
+    border-top: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: var(--color-bg);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .tab-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    transition: background 0.15s ease;
+  }
+
+  .tab-item:hover {
+    background: var(--color-divider);
+  }
+
+  .tab-item.active {
+    background: var(--color-primary-light);
+    box-shadow: none;
+  }
+
+  .tab-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .tab-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .tab-item.active .tab-label {
+    font-weight: 700;
+  }
+}

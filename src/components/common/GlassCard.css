@@ -6,3 +6,12 @@
   box-shadow: none;
   backdrop-filter: none;
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .glass-card {
+    padding: var(--space-lg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--neu-convex-sm);
+  }
+}

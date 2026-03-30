@@ -37,3 +37,10 @@
   font-weight: 500;
   color: var(--color-text);
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .add-option-row:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}

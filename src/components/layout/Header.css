@@ -42,3 +42,26 @@
 .header-add-btn:active {
   box-shadow: var(--neu-concave);
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .app-header {
+    padding: 16px 24px;
+    margin-bottom: var(--space-lg);
+  }
+
+  .header-title {
+    font-size: var(--font-size-3xl);
+  }
+
+  .header-add-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+
+  .header-add-btn:hover {
+    box-shadow: var(--neu-convex);
+    transform: scale(1.05);
+  }
+}

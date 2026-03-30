@@ -208,7 +208,7 @@ export default function CalendarPage() {
       </div>
 
       {view === 'month' && (
-        <>
+        <div className="cal-desktop-row">
           <GlassCard>
             <MonthlyView
               currentDate={currentDate}
@@ -232,7 +232,7 @@ export default function CalendarPage() {
               onMoveItem={handleMoveItem}
             />
           </GlassCard>
-        </>
+        </div>
       )}
 
       {view === 'day' && (

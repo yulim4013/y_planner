@@ -677,3 +677,61 @@
   font-weight: 700;
   color: var(--color-text);
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .dash-card {
+    padding: 18px 22px;
+  }
+
+  .dash-cat-cards {
+    gap: 12px;
+  }
+
+  .dash-cat-card {
+    padding: 12px 16px;
+  }
+
+  .dash-cat-card:hover {
+    box-shadow: var(--neu-convex);
+    transform: translateY(-1px);
+  }
+
+  .dash-event-item {
+    padding: 12px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .dash-event-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .dash-task-item {
+    padding: 10px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .dash-task-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .dash-expense-item {
+    padding: 10px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .dash-expense-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .sleep-summary {
+    padding: 10px 18px;
+  }
+
+  .sleep-summary:hover {
+    box-shadow: var(--neu-convex);
+  }
+}

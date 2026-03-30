@@ -61,3 +61,11 @@
 .login-btn svg {
   flex-shrink: 0;
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .login-btn:hover {
+    transform: scale(1.02);
+    box-shadow: var(--neu-convex);
+  }
+}

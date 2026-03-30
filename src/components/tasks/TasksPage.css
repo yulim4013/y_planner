@@ -86,3 +86,19 @@
   font-size: 12px;
   color: var(--color-text-tertiary);
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .task-filters {
+    gap: 10px;
+  }
+
+  .filter-btn {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+
+  .filter-btn:hover {
+    background: var(--color-divider);
+  }
+}

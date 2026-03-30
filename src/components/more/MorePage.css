@@ -83,3 +83,20 @@
   transform: scale(0.98);
   background: rgba(255, 138, 128, 0.1);
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .more-menu-item {
+    padding: 10px 12px;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+  }
+
+  .more-menu-item:hover {
+    background: var(--color-divider);
+  }
+
+  .logout-btn:hover {
+    background: rgba(255, 138, 128, 0.1);
+  }
+}

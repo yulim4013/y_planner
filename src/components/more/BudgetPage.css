@@ -448,3 +448,30 @@
   font-size: 14px;
   padding: 40px 0;
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .budget-summary-row {
+    gap: 16px;
+  }
+
+  .txn-item {
+    padding: 12px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .txn-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .asset-item {
+    padding: 10px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .asset-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}

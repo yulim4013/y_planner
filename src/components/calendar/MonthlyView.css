@@ -111,3 +111,31 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .cal-day {
+    border-radius: 12px;
+    transition: background 0.15s ease;
+  }
+
+  .cal-day:hover {
+    background: var(--color-divider);
+  }
+
+  .day-num {
+    font-size: 15px;
+  }
+
+  .weekday {
+    font-size: 13px;
+  }
+
+  .day-expense {
+    font-size: 9px;
+  }
+}

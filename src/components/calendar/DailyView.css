@@ -367,3 +367,26 @@
 .action-bar-btn.action-delete {
   color: #FF6B6B;
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .daily-event {
+    border-radius: 8px;
+    padding: 12px 8px;
+    transition: background 0.15s ease;
+  }
+
+  .daily-event:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .daily-task {
+    border-radius: 8px;
+    padding: 10px 8px;
+    transition: background 0.15s ease;
+  }
+
+  .daily-task:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}

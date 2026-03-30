@@ -186,3 +186,16 @@
   color: #333;
   margin-bottom: 2px;
 }
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .task-item {
+    padding: 16px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+
+  .task-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}
