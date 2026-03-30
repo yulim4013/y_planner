@@ -108,6 +108,13 @@
   box-shadow: var(--neu-concave);
 }
 
+.diary-entry-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 6px;
+}
+
 .diary-entry-content {
   font-size: 15px;
   line-height: 1.7;
@@ -287,6 +294,14 @@
   font-size: 13px;
   color: var(--color-text-secondary);
   font-weight: 500;
+}
+
+.diary-recent-entry-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: 2px;
 }
 
 .diary-recent-preview {

@@ -12,6 +12,7 @@ export type Mood = 'great' | 'good' | 'okay' | 'bad' | 'terrible'
 export interface DiaryEntry {
   id: string
   date: Timestamp
+  title: string
   content: string
   mood: Mood | null
   photos: DiaryPhoto[]

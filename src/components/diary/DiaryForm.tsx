@@ -22,22 +22,26 @@ const MOODS: { value: Mood; emoji: string; label: string }[] = [
 ]
 
 export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: DiaryFormProps) {
+  const [title, setTitle] = useState('')
   const [mood, setMood] = useState<Mood | null>(null)
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<DiaryPhoto[]>([])
   const [links, setLinks] = useState<string[]>([])
   const [linkInput, setLinkInput] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen) {
+      setTitle(editEntry?.title ?? '')
       setMood(editEntry?.mood ?? null)
       setContent(editEntry?.content ?? '')
       setPhotos(editEntry?.photos ?? [])
       setLinks(editEntry?.links ?? [])
       setLinkInput('')
+      setUploadError('')
     }
   }, [isOpen, editEntry])
 
@@ -46,15 +50,24 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
     if (!files || files.length === 0) return
 
     setUploading(true)
+    setUploadError('')
     try {
       const newPhotos: DiaryPhoto[] = []
       for (let i = 0; i < files.length; i++) {
-        const photo = await uploadDiaryPhoto(files[i])
-        if (photo) newPhotos.push(photo)
+        try {
+          const photo = await uploadDiaryPhoto(files[i])
+          if (photo) newPhotos.push(photo)
+        } catch (err) {
+          console.error(`Photo ${i + 1} upload failed:`, err)
+          setUploadError(`사진 업로드 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+        }
       }
-      setPhotos((prev) => [...prev, ...newPhotos])
+      if (newPhotos.length > 0) {
+        setPhotos((prev) => [...prev, ...newPhotos])
+      }
     } catch (err) {
       console.error('Photo upload error:', err)
+      setUploadError('사진 업로드에 실패했습니다')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -83,11 +96,12 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
   }
 
   const handleSave = async () => {
-    if (!content.trim() && !mood && photos.length === 0) return
+    if (!title.trim() && !content.trim() && !mood && photos.length === 0) return
     setSaving(true)
     try {
       if (editEntry) {
         await updateDiaryEntry(editEntry.id, {
+          title: title.trim(),
           mood,
           content: content.trim(),
           photos,
@@ -96,6 +110,7 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
       } else {
         await addDiaryEntry({
           date: selectedDate,
+          title: title.trim(),
           mood,
           content: content.trim(),
           photos,
@@ -117,6 +132,14 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
       <div className="diary-form">
         {/* 날짜 표시 */}
         <div className="diary-form-date">{dateStr}</div>
+
+        {/* 제목 */}
+        <input
+          className="diary-form-title-input"
+          placeholder="제목 (선택)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
 
         {/* 기분 선택 */}
         <div className="diary-form-section">
@@ -186,6 +209,7 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
               <span>{uploading ? '업로드 중...' : '사진 추가'}</span>
             </button>
           </div>
+          {uploadError && <p className="diary-upload-error">{uploadError}</p>}
         </div>
 
         {/* 링크 추가 */}
@@ -225,7 +249,7 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
           <button
             className="diary-form-save"
             onClick={handleSave}
-            disabled={saving || uploading || (!content.trim() && !mood && photos.length === 0)}
+            disabled={saving || uploading || (!title.trim() && !content.trim() && !mood && photos.length === 0)}
           >
             {saving ? '저장 중...' : editEntry ? '수정하기' : '저장하기'}
           </button>

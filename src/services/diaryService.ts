@@ -36,11 +36,24 @@ export function subscribeDiaryEntries(callback: (entries: DiaryEntry[]) => void)
   })
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
 export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   const uid = useAuthStore.getState().user?.uid
-  if (!uid || !storage) return null
+  if (!uid || !storage) {
+    console.error('uploadDiaryPhoto: uid or storage is null')
+    return null
+  }
 
-  const ext = file.name.split('.').pop() || 'jpg'
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
   const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
   const storagePath = `users/${uid}/diary/${fileName}`
   const storageRef = ref(storage, storagePath)
@@ -49,20 +62,26 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   let uploadFile = file
   if (file.size > 1024 * 1024) {
     try {
-      uploadFile = await compressImage(file, 0.7, 1200)
-    } catch {
-      uploadFile = file // fallback to original
+      uploadFile = await withTimeout(compressImage(file, 0.7, 1200), 15000, 'compressImage')
+    } catch (err) {
+      console.warn('Image compress failed, using original:', err)
+      uploadFile = file
     }
   }
 
-  await uploadBytes(storageRef, uploadFile)
-  const url = await getDownloadURL(storageRef)
+  try {
+    await withTimeout(uploadBytes(storageRef, uploadFile), 30000, 'uploadBytes')
+    const url = await withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL')
 
-  return {
-    url,
-    storagePath,
-    caption: '',
-    uploadedAt: Timestamp.now(),
+    return {
+      url,
+      storagePath,
+      caption: '',
+      uploadedAt: Timestamp.now(),
+    }
+  } catch (err) {
+    console.error('uploadDiaryPhoto failed:', err)
+    throw err // re-throw so DiaryForm can show error
   }
 }
 
@@ -129,6 +148,7 @@ async function compressImage(file: File, quality: number, maxSize: number): Prom
 
 export async function addDiaryEntry(data: {
   date: Date
+  title?: string
   mood: Mood | null
   content: string
   photos?: DiaryPhoto[]
@@ -145,6 +165,7 @@ export async function addDiaryEntry(data: {
 
   return addDoc(ref, {
     date: Timestamp.fromDate(normalized),
+    title: data.title || '',
     content: data.content,
     mood: data.mood,
     photos: data.photos || [],

@@ -75,7 +75,7 @@ export default function DiaryPage() {
 
   return (
     <div className="page">
-      <Header title="다이어리" right={
+      <Header title="DIARY" right={
         <button className="header-add-btn" onClick={handleWrite}>+</button>
       } />
 
@@ -113,6 +113,7 @@ export default function DiaryPage() {
                 <button className="diary-delete-btn" onClick={() => handleDeleteEntry(todayEntry.id)}>삭제</button>
               </div>
             </div>
+            {todayEntry.title && <h4 className="diary-entry-title">{todayEntry.title}</h4>}
             <p className="diary-entry-content">{todayEntry.content}</p>
             {todayEntry.photos && todayEntry.photos.length > 0 && (
               <div className="diary-entry-photos">
@@ -189,6 +190,7 @@ export default function DiaryPage() {
                     {entry.mood && <span className="diary-recent-mood">{MOOD_EMOJI[entry.mood]}</span>}
                     <span className="diary-recent-weekday">{format(entryDate, 'EEEE', { locale: ko })}</span>
                   </div>
+                  {entry.title && <span className="diary-recent-entry-title">{entry.title}</span>}
                   <p className="diary-recent-preview">{entry.content.slice(0, 80)}{entry.content.length > 80 ? '...' : ''}</p>
                 </div>
               </div>
