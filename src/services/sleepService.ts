@@ -8,7 +8,6 @@ import type { SleepRecord } from '../types'
 
 function getSleepRef() {
   const uid = useAuthStore.getState().user?.uid
-  console.log('[sleep] getSleepRef uid:', uid)
   if (!uid || !db) return null
   return collection(db, 'users', uid, 'sleepRecords')
 }
@@ -24,24 +23,16 @@ export function subscribeSleepForDate(
     return () => {}
   }
 
-  // date(YYYY-MM-DD) 기준으로 전날과 당일 수면 기록 조회
   const [y, m, d] = date.split('-').map(Number)
   const prevDate = new Date(y, m - 1, d - 1)
   const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`
   const targetDates = new Set([prevDateStr, date])
 
-  console.log('[sleep] subscribing for dates:', date, prevDateStr)
-
-  // 인덱스 의존 없이 전체 조회 후 클라이언트 필터링
   return onSnapshot(ref,
     (snapshot) => {
-      console.log('[sleep] snapshot docs count:', snapshot.docs.length)
-      const allRecords = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as SleepRecord))
-      console.log('[sleep] all records:', allRecords.map((r) => ({ type: r.type, date: r.date })))
-      const records = allRecords
+      const records = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() } as SleepRecord))
         .filter((r) => targetDates.has(r.date))
-        .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
-      console.log('[sleep] filtered records:', records.length)
       callback(records)
     },
     (error) => {
@@ -51,39 +42,52 @@ export function subscribeSleepForDate(
   )
 }
 
-// 수면 시간 계산: 마지막 sleep -> 첫 wake 쌍 찾기
+function formatTimeKorean(h: number, m: number): string {
+  const mm = String(m).padStart(2, '0')
+  if (h < 12) return `오전 ${h === 0 ? 12 : h}:${mm}`
+  return `오후 ${h === 12 ? 12 : h - 12}:${mm}`
+}
+
+// date+time 문자열 기반으로 분 단위 시각 계산 (timestamp 의존 X)
+function toAbsoluteMinutes(date: string, time: string): number {
+  const [y, mo, d] = date.split('-').map(Number)
+  const [h, m] = time.split(':').map(Number)
+  // 날짜를 일수로 변환 (간단 계산)
+  const days = y * 365 + mo * 31 + d
+  return days * 24 * 60 + h * 60 + m
+}
+
+// 수면 시간 계산: 가장 최근 sleep→wake 쌍
 export function calculateSleepDuration(
   records: SleepRecord[],
   todayDate: string,
 ): { sleepTime: string | null; wakeTime: string | null; durationMin: number } {
-  // 전날 밤 sleep 찾기
-  const sleepRecord = [...records]
-    .reverse()
-    .find((r) => r.type === 'sleep')
+  // 당일 wake 중 가장 최근 것
+  const wakeRecords = records
+    .filter((r) => r.type === 'wake' && r.date === todayDate && r.time)
+    .sort((a, b) => toAbsoluteMinutes(b.date, b.time) - toAbsoluteMinutes(a.date, a.time))
+  const wakeRecord = wakeRecords[0]
 
-  // 당일 wake 찾기
-  const wakeRecord = records.find(
-    (r) => r.type === 'wake' && r.date === todayDate,
-  )
+  // 전날~당일 sleep 중 가장 최근 것 (wake보다 이전이어야 함)
+  const sleepRecords = records
+    .filter((r) => r.type === 'sleep' && r.time)
+    .sort((a, b) => toAbsoluteMinutes(b.date, b.time) - toAbsoluteMinutes(a.date, a.time))
+  const sleepRecord = wakeRecord
+    ? sleepRecords.find((r) => toAbsoluteMinutes(r.date, r.time) < toAbsoluteMinutes(wakeRecord.date, wakeRecord.time))
+    : sleepRecords[0]
 
   if (!sleepRecord || !wakeRecord) {
     return { sleepTime: null, wakeTime: null, durationMin: 0 }
   }
 
-  const sleepTs = sleepRecord.timestamp.toDate()
-  const wakeTs = wakeRecord.timestamp.toDate()
-  const durationMin = Math.round((wakeTs.getTime() - sleepTs.getTime()) / 60000)
+  const durationMin = toAbsoluteMinutes(wakeRecord.date, wakeRecord.time) - toAbsoluteMinutes(sleepRecord.date, sleepRecord.time)
 
-  const formatTime = (d: Date) => {
-    const h = d.getHours()
-    const m = String(d.getMinutes()).padStart(2, '0')
-    if (h < 12) return `오전 ${h === 0 ? 12 : h}:${m}`
-    return `오후 ${h === 12 ? 12 : h - 12}:${m}`
-  }
+  const [sh, sm] = sleepRecord.time.split(':').map(Number)
+  const [wh, wm] = wakeRecord.time.split(':').map(Number)
 
   return {
-    sleepTime: formatTime(sleepTs),
-    wakeTime: formatTime(wakeTs),
+    sleepTime: formatTimeKorean(sh, sm),
+    wakeTime: formatTimeKorean(wh, wm),
     durationMin: Math.max(0, durationMin),
   }
 }

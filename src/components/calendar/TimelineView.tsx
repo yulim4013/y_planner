@@ -540,44 +540,37 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActiveEventId(null)
   }, [])
 
-  // 수면 블록 계산
+  // 수면 블록 계산 (date+time 문자열 기반)
   const sleepBlocks: { top: number; height: number; label: string; detail: string }[] = []
-  if (sleepInfo && sleepInfo.durationMin > 0 && sleepRecords.length >= 2) {
-    const sleepRecord = [...sleepRecords].reverse().find((r) => r.type === 'sleep')
-    const wakeRecord = sleepRecords.find((r) => r.type === 'wake')
-    if (sleepRecord && wakeRecord) {
-      const sleepTs = sleepRecord.timestamp.toDate()
-      const wakeTs = wakeRecord.timestamp.toDate()
-      const sleepH = sleepTs.getHours()
-      const sleepM = sleepTs.getMinutes()
-      const wakeH = wakeTs.getHours()
-      const wakeM = wakeTs.getMinutes()
+  if (sleepInfo && sleepInfo.durationMin > 0) {
+    // sleepInfo에서 이미 계산된 시간 사용, time 필드로 위치 결정
+    const wakeRecords = sleepRecords.filter((r) => r.type === 'wake' && r.time)
+    const sleepRecs = sleepRecords.filter((r) => r.type === 'sleep' && r.time)
+    const wakeRecord = wakeRecords.length > 0 ? wakeRecords[wakeRecords.length - 1] : null
+    const sleepRecord = sleepRecs.length > 0 ? sleepRecs[sleepRecs.length - 1] : null
 
-      // 취침이 전날 밤인 경우 (예: 23:00~07:00)
+    if (sleepRecord && wakeRecord) {
+      const [wh, wm] = wakeRecord.time.split(':').map(Number)
+      const [sh, sm] = sleepRecord.time.split(':').map(Number)
+      const hrs = Math.floor(sleepInfo.durationMin / 60)
+      const mins = sleepInfo.durationMin % 60
+      const label = `${hrs}시간${mins > 0 ? ` ${mins}분` : ''}`
+      const detail = `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`
+
       if (sleepRecord.date !== wakeRecord.date) {
-        // 0시~기상시간 블록
-        const wakeMin = wakeH * 60 + wakeM
+        // 전날 밤 취침 → 0시~기상 블록
+        const wakeMin = wh * 60 + wm
         if (wakeMin > 0) {
-          const hours = Math.floor(sleepInfo.durationMin / 60)
-          const mins = sleepInfo.durationMin % 60
-          sleepBlocks.push({
-            top: 0,
-            height: (wakeMin / 60) * HOUR_HEIGHT,
-            label: `${hours}시간${mins > 0 ? ` ${mins}분` : ''}`,
-            detail: `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`,
-          })
+          sleepBlocks.push({ top: 0, height: (wakeMin / 60) * HOUR_HEIGHT, label, detail })
         }
       } else {
-        // 같은 날 수면 (낮잠 등)
-        const sleepMin = sleepH * 60 + sleepM
-        const wakeMin = wakeH * 60 + wakeM
-        const hours = Math.floor(sleepInfo.durationMin / 60)
-        const mins = sleepInfo.durationMin % 60
+        // 같은 날 수면
+        const sleepMin = sh * 60 + sm
+        const wakeMin = wh * 60 + wm
         sleepBlocks.push({
           top: (sleepMin / 60) * HOUR_HEIGHT,
           height: ((wakeMin - sleepMin) / 60) * HOUR_HEIGHT,
-          label: `${hours}시간${mins > 0 ? ` ${mins}분` : ''}`,
-          detail: `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`,
+          label, detail,
         })
       }
     }
