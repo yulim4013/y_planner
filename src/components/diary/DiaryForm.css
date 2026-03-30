@@ -1,0 +1,142 @@
+.diary-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 20px;
+}
+
+.diary-form-date {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 4px 0;
+}
+
+.diary-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diary-form-content-section {
+  flex: 1;
+}
+
+.diary-form-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* 기분 선택 */
+.diary-mood-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.diary-mood-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 14px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 52px;
+}
+
+.diary-mood-btn.active {
+  box-shadow: var(--neu-convex);
+  background: var(--color-primary-light);
+  transform: scale(1.05);
+}
+
+.diary-mood-btn:active {
+  transform: scale(0.95);
+}
+
+.diary-mood-btn-emoji {
+  font-size: 24px;
+}
+
+.diary-mood-btn-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.diary-mood-btn.active .diary-mood-btn-label {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* 내용 입력 */
+.diary-form-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--color-divider);
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.7;
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  min-height: 200px;
+}
+
+.diary-form-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+.diary-form-textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* 저장 버튼 */
+.diary-form-actions {
+  margin-top: 4px;
+}
+
+.diary-form-save {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.diary-form-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diary-form-save:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .diary-mood-btn:hover:not(.active) {
+    box-shadow: var(--neu-convex-sm);
+    transform: translateY(-1px);
+  }
+
+  .diary-form-save:not(:disabled):hover {
+    box-shadow: var(--neu-convex);
+    transform: translateY(-1px);
+  }
+}

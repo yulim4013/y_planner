@@ -22,6 +22,8 @@ interface ActionBarState {
   barLeft: number
 }
 
+type DragMode = 'move' | 'resize-top' | 'resize-bottom'
+
 const HOUR_HEIGHT = 60
 
 const ROUTINE_ICON_MAP: Record<string, string> = {
@@ -64,7 +66,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
-  // Refs for current data (accessible in event handlers)
   const eventsRef = useRef(events)
   eventsRef.current = events
 
@@ -74,143 +75,243 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   // Drag state
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragMode, setDragMode] = useState<DragMode>('move')
   const [dragDeltaY, setDragDeltaY] = useState(0)
   const [dragTimeLabel, setDragTimeLabel] = useState('')
+
   const dragRef = useRef<{
     type: 'event' | 'task'
     id: string
+    mode: DragMode
     startY: number
     startScroll: number
-    originalMin: number
+    originalStartMin: number
+    originalEndMin: number
     element: HTMLElement
-    docMoveHandler: ((e: TouchEvent) => void) | null
-    docEndHandler: ((e: TouchEvent) => void) | null
+    cleanup: () => void
   } | null>(null)
+
   const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lpTriggeredRef = useRef(false)
   const touchStartPosRef = useRef({ x: 0, y: 0 })
+  const preMouseRef = useRef<{ moveFn: (e: MouseEvent) => void; upFn: () => void } | null>(null)
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (lpTimerRef.current) clearTimeout(lpTimerRef.current)
-      if (dragRef.current?.docMoveHandler) {
-        document.removeEventListener('touchmove', dragRef.current.docMoveHandler)
-      }
-      if (dragRef.current?.docEndHandler) {
-        document.removeEventListener('touchend', dragRef.current.docEndHandler)
+      dragRef.current?.cleanup()
+      if (preMouseRef.current) {
+        document.removeEventListener('mousemove', preMouseRef.current.moveFn)
+        document.removeEventListener('mouseup', preMouseRef.current.upFn)
       }
     }
   }, [])
 
-  const startDragMode = useCallback((type: 'event' | 'task', id: string, element: HTMLElement, originalMin: number, touchY: number) => {
+  // ── Unified drag system (touch + mouse, move + resize) ──
+  const startDragMode = useCallback((
+    type: 'event' | 'task',
+    id: string,
+    mode: DragMode,
+    element: HTMLElement,
+    originalStartMin: number,
+    originalEndMin: number,
+    pointerY: number,
+    pointerType: 'touch' | 'mouse'
+  ) => {
     const scrollContainer = gridRef.current?.closest('.day-view-timeline-scroll')
     const startScroll = scrollContainer?.scrollTop || 0
+    const cleanupFns: (() => void)[] = []
 
-    const info = { type, id, startY: touchY, startScroll, originalMin, element, docMoveHandler: null as any, docEndHandler: null as any }
+    const getScrollDelta = () =>
+      (gridRef.current?.closest('.day-view-timeline-scroll')?.scrollTop || 0) - startScroll
 
-    const handleDocMove = (e: TouchEvent) => {
+    const handleMove = (e: TouchEvent | MouseEvent) => {
       e.preventDefault()
-      const touch = e.touches[0]
-      const dy = touch.clientY - info.startY
-      const scroll = (gridRef.current?.closest('.day-view-timeline-scroll')?.scrollTop || 0) - info.startScroll
-      const totalDy = dy + scroll
-
+      const y = 'touches' in e ? e.touches[0].clientY : e.clientY
+      const totalDy = (y - pointerY) + getScrollDelta()
       setDragDeltaY(totalDy)
 
       const deltaMins = Math.round((totalDy / HOUR_HEIGHT) * 60 / 15) * 15
-      const newMin = Math.max(0, Math.min(23 * 60 + 45, info.originalMin + deltaMins))
-      setDragTimeLabel(formatTimeKorean(minutesToTime(newMin)))
+
+      if (mode === 'move') {
+        const newMin = Math.max(0, Math.min(23 * 60 + 45, originalStartMin + deltaMins))
+        setDragTimeLabel(formatTimeKorean(minutesToTime(newMin)))
+      } else if (mode === 'resize-top') {
+        const newStart = Math.max(0, Math.min(originalEndMin - 15, originalStartMin + deltaMins))
+        setDragTimeLabel(`시작 ${formatTimeKorean(minutesToTime(newStart))}`)
+      } else {
+        const newEnd = Math.max(originalStartMin + 15, Math.min(24 * 60 - 1, originalEndMin + deltaMins))
+        setDragTimeLabel(`종료 ${formatTimeKorean(minutesToTime(newEnd))}`)
+      }
     }
 
-    const handleDocEnd = (e: TouchEvent) => {
-      const touch = e.changedTouches[0]
-      const dy = touch.clientY - info.startY
-      const scroll = (gridRef.current?.closest('.day-view-timeline-scroll')?.scrollTop || 0) - info.startScroll
-      const totalDy = dy + scroll
+    const handleEnd = (e: TouchEvent | MouseEvent) => {
+      const y = 'changedTouches' in e ? e.changedTouches[0].clientY : e.clientY
+      const totalDy = (y - pointerY) + getScrollDelta()
       const deltaMins = Math.round((totalDy / HOUR_HEIGHT) * 60 / 15) * 15
 
-      if (Math.abs(deltaMins) >= 15) {
-        // Dragged enough → update time
-        const newMin = Math.max(0, Math.min(23 * 60 + 45, info.originalMin + deltaMins))
-        const newTime = minutesToTime(newMin)
-
-        if (info.type === 'event') {
-          const ev = eventsRef.current.find((e) => e.id === info.id)
-          if (ev?.startTime) {
-            const duration = ev.endTime ? timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime) : 60
-            updateEvent(info.id, {
-              startTime: newTime,
-              endTime: minutesToTime(Math.min(23 * 60 + 59, newMin + duration)),
-            })
+      if (mode === 'move') {
+        if (Math.abs(deltaMins) >= 15) {
+          const newMin = Math.max(0, Math.min(23 * 60 + 45, originalStartMin + deltaMins))
+          const newTime = minutesToTime(newMin)
+          if (type === 'event') {
+            const ev = eventsRef.current.find((e) => e.id === id)
+            if (ev?.startTime) {
+              const duration = ev.endTime ? timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime) : 60
+              updateEvent(id, {
+                startTime: newTime,
+                endTime: minutesToTime(Math.min(23 * 60 + 59, newMin + duration)),
+              })
+            }
+          } else {
+            updateTask(id, { dueTime: newTime })
           }
         } else {
-          updateTask(info.id, { dueTime: newTime })
+          // No significant drag → show action bar
+          const rect = element.getBoundingClientRect()
+          const bw = 160
+          let bt = rect.bottom + 8
+          let bl = rect.left + rect.width / 2
+          if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
+          bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
+          setActionBar({ type, id, barTop: bt, barLeft: bl })
+        }
+      } else if (mode === 'resize-top') {
+        if (Math.abs(deltaMins) >= 15) {
+          const newStart = Math.max(0, Math.min(originalEndMin - 15, originalStartMin + deltaMins))
+          updateEvent(id, { startTime: minutesToTime(newStart) })
         }
       } else {
-        // No drag → show action bar
-        const rect = info.element.getBoundingClientRect()
-        const bw = 160
-        let bt = rect.bottom + 8
-        let bl = rect.left + rect.width / 2
-        if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
-        bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
-        setActionBar({ type: info.type, id: info.id, barTop: bt, barLeft: bl })
+        if (Math.abs(deltaMins) >= 15) {
+          const newEnd = Math.max(originalStartMin + 15, Math.min(24 * 60 - 1, originalEndMin + deltaMins))
+          updateEvent(id, { endTime: minutesToTime(newEnd) })
+        }
       }
 
       // Cleanup
-      document.removeEventListener('touchmove', handleDocMove)
-      document.removeEventListener('touchend', handleDocEnd)
+      cleanupFns.forEach((fn) => fn())
       dragRef.current = null
       setDraggedId(null)
+      setDragMode('move')
       setDragDeltaY(0)
       setDragTimeLabel('')
     }
 
-    info.docMoveHandler = handleDocMove
-    info.docEndHandler = handleDocEnd
-    dragRef.current = info
+    if (pointerType === 'touch') {
+      document.addEventListener('touchmove', handleMove as EventListener, { passive: false })
+      document.addEventListener('touchend', handleEnd as EventListener)
+      cleanupFns.push(
+        () => document.removeEventListener('touchmove', handleMove as EventListener),
+        () => document.removeEventListener('touchend', handleEnd as EventListener)
+      )
+    } else {
+      document.addEventListener('mousemove', handleMove as EventListener)
+      document.addEventListener('mouseup', handleEnd as EventListener)
+      cleanupFns.push(
+        () => document.removeEventListener('mousemove', handleMove as EventListener),
+        () => document.removeEventListener('mouseup', handleEnd as EventListener)
+      )
+    }
 
-    document.addEventListener('touchmove', handleDocMove, { passive: false })
-    document.addEventListener('touchend', handleDocEnd)
+    dragRef.current = {
+      type, id, mode,
+      startY: pointerY, startScroll,
+      originalStartMin, originalEndMin,
+      element,
+      cleanup: () => cleanupFns.forEach((fn) => fn()),
+    }
 
     setDraggedId(id)
+    setDragMode(mode)
     setDragDeltaY(0)
     try { navigator.vibrate?.(25) } catch {}
   }, [])
 
-  // Item touch handlers
-  const makeItemHandlers = (type: 'event' | 'task', id: string, originalMin: number) => ({
-    onTouchStart: (e: React.TouchEvent) => {
-      if (actionBar) { setActionBar(null); return }
-      lpTriggeredRef.current = false
-      const el = e.currentTarget as HTMLElement
-      const touch = e.touches[0]
-      touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+  // ── Item handlers (long-press → drag) for touch + mouse ──
+  const makeItemHandlers = (type: 'event' | 'task', id: string, originalStartMin: number, originalEndMin?: number) => {
+    const endMin = originalEndMin ?? originalStartMin + 60
 
-      lpTimerRef.current = setTimeout(() => {
-        lpTriggeredRef.current = true
-        startDragMode(type, id, el, originalMin, touch.clientY)
-        lpTimerRef.current = null
-      }, 500)
-    },
-    onTouchMove: (e: React.TouchEvent) => {
-      if (lpTimerRef.current) {
-        const dx = e.touches[0].clientX - touchStartPosRef.current.x
-        const dy = e.touches[0].clientY - touchStartPosRef.current.y
-        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-          clearTimeout(lpTimerRef.current)
+    return {
+      onTouchStart: (e: React.TouchEvent) => {
+        if (actionBar) { setActionBar(null); return }
+        lpTriggeredRef.current = false
+        const el = e.currentTarget as HTMLElement
+        const touch = e.touches[0]
+        touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+        lpTimerRef.current = setTimeout(() => {
+          lpTriggeredRef.current = true
+          startDragMode(type, id, 'move', el, originalStartMin, endMin, touch.clientY, 'touch')
           lpTimerRef.current = null
+        }, 500)
+      },
+      onTouchMove: (e: React.TouchEvent) => {
+        if (lpTimerRef.current) {
+          const dx = e.touches[0].clientX - touchStartPosRef.current.x
+          const dy = e.touches[0].clientY - touchStartPosRef.current.y
+          if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+            clearTimeout(lpTimerRef.current)
+            lpTimerRef.current = null
+          }
         }
-      }
+      },
+      onTouchEnd: (e: React.TouchEvent) => {
+        if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+        if (lpTriggeredRef.current) e.preventDefault()
+      },
+      onMouseDown: (e: React.MouseEvent) => {
+        if (e.button !== 0) return
+        if (actionBar) { setActionBar(null); return }
+        lpTriggeredRef.current = false
+        const el = e.currentTarget as HTMLElement
+        const startPos = { x: e.clientX, y: e.clientY }
+
+        const onPreMove = (ev: MouseEvent) => {
+          if (Math.abs(ev.clientX - startPos.x) > 10 || Math.abs(ev.clientY - startPos.y) > 10) {
+            if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+            cleanupPre()
+          }
+        }
+        const onPreUp = () => {
+          if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+          cleanupPre()
+        }
+        const cleanupPre = () => {
+          document.removeEventListener('mousemove', onPreMove)
+          document.removeEventListener('mouseup', onPreUp)
+          preMouseRef.current = null
+        }
+
+        document.addEventListener('mousemove', onPreMove)
+        document.addEventListener('mouseup', onPreUp)
+        preMouseRef.current = { moveFn: onPreMove, upFn: onPreUp }
+
+        lpTimerRef.current = setTimeout(() => {
+          lpTriggeredRef.current = true
+          cleanupPre()
+          startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
+          lpTimerRef.current = null
+        }, 500)
+      },
+    }
+  }
+
+  // ── Resize handle handlers (immediate, no long-press) ──
+  const makeResizeHandlers = (eventId: string, mode: 'resize-top' | 'resize-bottom', startMin: number, endMin: number) => ({
+    onTouchStart: (e: React.TouchEvent) => {
+      e.stopPropagation()
+      const el = (e.currentTarget as HTMLElement).closest('.tl-event-block') as HTMLElement
+      startDragMode('event', eventId, mode, el, startMin, endMin, e.touches[0].clientY, 'touch')
     },
-    onTouchEnd: (e: React.TouchEvent) => {
-      if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
-      if (lpTriggeredRef.current) e.preventDefault()
+    onMouseDown: (e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      const el = (e.currentTarget as HTMLElement).closest('.tl-event-block') as HTMLElement
+      startDragMode('event', eventId, mode, el, startMin, endMin, e.clientY, 'mouse')
     },
   })
 
-  // Build event groups
+  // ── Build event groups ──
   const allDayEvents = events.filter((e) => e.isAllDay)
   const timedEvents = events.filter((e) => !e.isAllDay && e.startTime)
     .sort((a, b) => timeToMinutes(a.startTime!) - timeToMinutes(b.startTime!))
@@ -247,7 +348,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // Scroll position
+  // Auto-scroll
   useEffect(() => {
     const scrollContainer = gridRef.current?.closest('.day-view-timeline-scroll')
     if (!scrollContainer) return
@@ -278,6 +379,14 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActionBar(null)
   }
 
+  // Click guard: prevent click after long-press / drag
+  const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
+    if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
+    if (actionBar || draggedId) return
+    if (type === 'event') onEditEvent(item as CalendarEvent)
+    else onEditTask(item as Task)
+  }
+
   const hours = Array.from({ length: 24 }, (_, i) => i)
   const hasContent = events.length > 0 || tasks.length > 0 || routines.length > 0
 
@@ -292,7 +401,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               <div
                 key={event.id}
                 className={`tl-allday-item ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
-                onClick={() => { if (!actionBar && !draggedId) onEditEvent(event) }}
+                onClick={() => handleItemClick('event', event)}
                 style={{ borderLeftColor: cat?.color || '#64B5F6', background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.1)' }}
               >
                 <span className="tl-allday-title">
@@ -312,7 +421,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             <div
               key={task.id}
               className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-              onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+              onClick={() => handleItemClick('task', task)}
             >
               <button
                 className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
@@ -344,28 +453,66 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           {eventGroups.map(({ event, eventCat, tasks: groupTasks }) => {
             const startMin = timeToMinutes(event.startTime!)
             const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60
-            const top = (startMin / 60) * HOUR_HEIGHT
-            const baseHeight = ((endMin - startMin) / 60) * HOUR_HEIGHT
-            const taskRowHeight = groupTasks.length * 36
-            const headerHeight = 52
-            const minHeight = Math.max(baseHeight, headerHeight + taskRowHeight)
             const color = eventCat?.color || '#64B5F6'
             const isDragging = draggedId === event.id
-            const handlers = makeItemHandlers('event', event.id, startMin)
+            const isMoving = isDragging && dragMode === 'move'
+            const isResizing = isDragging && dragMode !== 'move'
+            const handlers = makeItemHandlers('event', event.id, startMin, endMin)
+
+            // Calculate block position and size (with resize adjustments)
+            let blockTop = (startMin / 60) * HOUR_HEIGHT
+            const taskRowHeight = groupTasks.length * 36
+            const headerHeight = 52
+            let baseHeight = ((endMin - startMin) / 60) * HOUR_HEIGHT
+
+            if (isDragging && dragMode === 'resize-top') {
+              const deltaMins = Math.round((dragDeltaY / HOUR_HEIGHT) * 60 / 15) * 15
+              const newStart = Math.max(0, Math.min(endMin - 15, startMin + deltaMins))
+              blockTop = (newStart / 60) * HOUR_HEIGHT
+              baseHeight = ((endMin - newStart) / 60) * HOUR_HEIGHT
+            } else if (isDragging && dragMode === 'resize-bottom') {
+              const deltaMins = Math.round((dragDeltaY / HOUR_HEIGHT) * 60 / 15) * 15
+              const newEnd = Math.max(startMin + 15, Math.min(24 * 60 - 1, endMin + deltaMins))
+              baseHeight = ((newEnd - startMin) / 60) * HOUR_HEIGHT
+            }
+
+            const minHeight = Math.max(baseHeight, headerHeight + taskRowHeight)
+
+            // Compute display times
+            let displayStart = event.startTime!
+            let displayEnd = event.endTime || ''
+            if (isDragging) {
+              const deltaMins = Math.round((dragDeltaY / HOUR_HEIGHT) * 60 / 15) * 15
+              if (dragMode === 'move') {
+                const newMin = Math.max(0, Math.min(23 * 60 + 45, startMin + deltaMins))
+                displayStart = minutesToTime(newMin)
+                if (event.endTime) displayEnd = minutesToTime(Math.min(23 * 60 + 59, newMin + (endMin - startMin)))
+              } else if (dragMode === 'resize-top') {
+                const newStart = Math.max(0, Math.min(endMin - 15, startMin + deltaMins))
+                displayStart = minutesToTime(newStart)
+              } else {
+                const newEnd = Math.max(startMin + 15, Math.min(24 * 60 - 1, endMin + deltaMins))
+                displayEnd = minutesToTime(newEnd)
+              }
+            }
 
             return (
               <div
                 key={event.id}
                 className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
                 style={{
-                  top,
+                  top: blockTop,
                   minHeight,
                   borderLeftColor: color,
                   background: `${color}22`,
-                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                  ...(isMoving ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                  ...(isResizing ? { zIndex: 100 } : {}),
                 }}
               >
-                <div className="tl-event-header" onClick={() => { if (!actionBar && !draggedId) onEditEvent(event) }} {...handlers}>
+                {/* Top resize handle */}
+                <div className="tl-resize-handle tl-resize-top" {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />
+
+                <div className="tl-event-header" onClick={() => handleItemClick('event', event)} {...handlers}>
                   <div className="tl-event-header-top">
                     <span className="tl-event-cat-icon">{eventCat?.icon || ''}</span>
                     <span className="tl-event-cat-name">{eventCat?.name || event.title}</span>
@@ -374,7 +521,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                     )}
                   </div>
                   <span className="tl-event-time">
-                    {isDragging && dragTimeLabel ? dragTimeLabel : formatTimeKorean(event.startTime!)} ~ {event.endTime ? formatTimeKorean(event.endTime) : ''}
+                    {formatTimeKorean(displayStart)} ~ {displayEnd ? formatTimeKorean(displayEnd) : ''}
                   </span>
                 </div>
 
@@ -390,7 +537,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                         <div
                           key={task.id}
                           className={`tl-nested-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                          onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+                          onClick={() => handleItemClick('task', task)}
                           {...taskHandlers}
                         >
                           <button
@@ -411,6 +558,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                     })}
                   </div>
                 )}
+
+                {/* Bottom resize handle */}
+                <div className="tl-resize-handle tl-resize-bottom" {...makeResizeHandlers(event.id, 'resize-bottom', startMin, endMin)} />
               </div>
             )
           })}
@@ -432,7 +582,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   top,
                   ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                 }}
-                onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+                onClick={() => handleItemClick('task', task)}
                 {...handlers}
               >
                 <button

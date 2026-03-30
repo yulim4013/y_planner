@@ -1,0 +1,280 @@
+/* 날짜 네비게이션 */
+.diary-date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.diary-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary-nav-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.diary-date-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+
+.diary-date-label:active {
+  background: var(--color-divider);
+}
+
+.diary-today-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary-dark);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* 일기 카드 */
+.diary-entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.diary-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.diary-mood-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diary-mood-emoji {
+  font-size: 24px;
+}
+
+.diary-mood-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.diary-entry-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.diary-edit-btn,
+.diary-delete-btn {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text-secondary);
+}
+
+.diary-delete-btn {
+  color: #FF8A80;
+}
+
+.diary-edit-btn:active,
+.diary-delete-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.diary-entry-content {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diary-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--color-divider);
+  border-radius: 8px;
+}
+
+.diary-summary-icon {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  margin-top: 1px;
+}
+
+.diary-summary-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+/* 빈 상태 */
+.diary-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px 0;
+}
+
+.diary-empty-icon {
+  opacity: 0.4;
+}
+
+.diary-empty-text {
+  font-size: 15px;
+  color: var(--color-text-tertiary);
+}
+
+.diary-write-btn {
+  padding: 10px 28px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--neu-convex-sm);
+}
+
+.diary-write-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+/* 최근 일기 */
+.diary-recent {
+  margin-top: 24px;
+}
+
+.diary-recent-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.diary-recent-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.diary-recent-item:last-child {
+  border-bottom: none;
+}
+
+.diary-recent-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+
+.diary-recent-day {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.diary-recent-month {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.diary-recent-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.diary-recent-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.diary-recent-mood {
+  font-size: 16px;
+}
+
+.diary-recent-weekday {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.diary-recent-preview {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==================== PC 데스크톱 ==================== */
+@media (min-width: 768px) {
+  .diary-nav-btn:hover {
+    box-shadow: var(--neu-convex);
+  }
+
+  .diary-date-label:hover {
+    background: var(--color-divider);
+  }
+
+  .diary-write-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--neu-convex);
+  }
+
+  .diary-edit-btn:hover,
+  .diary-delete-btn:hover {
+    box-shadow: var(--neu-convex);
+  }
+
+  .diary-recent-item {
+    padding: 16px 8px;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+  }
+
+  .diary-recent-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}

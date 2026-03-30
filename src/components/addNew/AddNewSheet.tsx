@@ -65,7 +65,7 @@ export default function AddNewSheet() {
     } else if (action === 'event') {
       setEventFormOpen(true)
     } else if (action === 'diary') {
-      navigate('/calendar')
+      navigate('/diary')
     } else if (action === 'expense') {
       navigate('/budget')
     }

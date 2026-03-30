@@ -368,8 +368,66 @@
   color: #FF6B6B;
 }
 
+/* ========== 리사이즈 핸들 ========== */
+.tl-resize-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  z-index: 5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tl-resize-top {
+  top: -4px;
+  cursor: ns-resize;
+  border-radius: 8px 8px 0 0;
+}
+
+.tl-resize-bottom {
+  bottom: -4px;
+  cursor: ns-resize;
+  border-radius: 0 0 8px 8px;
+}
+
+/* 리사이즈 핸들 시각 표시 */
+.tl-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.tl-resize-top::after {
+  top: 4px;
+}
+
+.tl-resize-bottom::after {
+  bottom: 4px;
+}
+
+/* 드래그 중일 때 핸들 강조 */
+.tl-dragging .tl-resize-handle::after {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 /* ==================== PC 데스크톱 ==================== */
 @media (min-width: 768px) {
+  /* 데스크톱 리사이즈 핸들 호버 */
+  .tl-event-block:hover .tl-resize-handle::after {
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .tl-resize-handle:hover::after {
+    background: rgba(0, 0, 0, 0.35) !important;
+    width: 32px;
+  }
+
   .tl-allday-item:hover {
     transform: scale(1.01);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);

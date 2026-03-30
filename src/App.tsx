@@ -10,6 +10,7 @@ import TasksPage from './components/tasks/TasksPage'
 import CalendarPage from './components/calendar/CalendarPage'
 import MorePage from './components/more/MorePage'
 import BudgetPage from './components/more/BudgetPage'
+import DiaryPage from './components/diary/DiaryPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
@@ -79,7 +80,7 @@ export default function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="calendar/*" element={<CalendarPage />} />
           <Route path="budget" element={<BudgetPage />} />
-          <Route path="diary" element={<div className="page" style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--color-text-tertiary)' }}>Diary - 준비 중</div>} />
+          <Route path="diary" element={<DiaryPage />} />
           <Route path="more" element={<MorePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

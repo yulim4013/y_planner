@@ -51,6 +51,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
   // Long press
   const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lpTriggeredRef = useRef(false)
+  const preMouseRef = useRef<{ moveFn: (e: MouseEvent) => void; upFn: () => void } | null>(null)
 
   const handleItemTouchStart = (e: React.TouchEvent, type: 'event' | 'task', id: string) => {
     if (actionBar) { setActionBar(null); return }
@@ -111,6 +112,48 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
     }
   }
 
+  // Mouse long-press (PC support)
+  const handleItemMouseDown = (e: React.MouseEvent, type: 'event' | 'task', id: string) => {
+    if (e.button !== 0) return
+    if (actionBar) { setActionBar(null); return }
+    lpTriggeredRef.current = false
+    const el = e.currentTarget as HTMLElement
+    const startPos = { x: e.clientX, y: e.clientY }
+
+    const onPreMove = (ev: MouseEvent) => {
+      if (Math.abs(ev.clientX - startPos.x) > 10 || Math.abs(ev.clientY - startPos.y) > 10) {
+        if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+        cleanupPre()
+      }
+    }
+    const onPreUp = () => {
+      if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+      cleanupPre()
+    }
+    const cleanupPre = () => {
+      document.removeEventListener('mousemove', onPreMove)
+      document.removeEventListener('mouseup', onPreUp)
+      preMouseRef.current = null
+    }
+
+    document.addEventListener('mousemove', onPreMove)
+    document.addEventListener('mouseup', onPreUp)
+    preMouseRef.current = { moveFn: onPreMove, upFn: onPreUp }
+
+    lpTimerRef.current = setTimeout(() => {
+      lpTriggeredRef.current = true
+      cleanupPre()
+      const rect = el.getBoundingClientRect()
+      const bw = 160
+      let bt = rect.bottom + 8, bl = rect.left + rect.width / 2
+      if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
+      bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
+      setActionBar({ type, id, barTop: bt, barLeft: bl })
+      try { navigator.vibrate?.(25) } catch {}
+      lpTimerRef.current = null
+    }, 500)
+  }
+
   // Action bar handlers
   const handleEdit = () => {
     if (!actionBar) return
@@ -139,7 +182,8 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
   }
 
   const handleClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
-    if (actionBar || lpTriggeredRef.current) return
+    if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
+    if (actionBar) return
     if (swipedId) { setSwipedId(null); setSwipeX(0); return }
     if (type === 'event') onEditEvent(item as CalendarEvent)
     else onEditTask(item as Task)
@@ -190,6 +234,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                   onTouchStart={(e) => handleItemTouchStart(e, 'event', event.id)}
                   onTouchMove={handleItemTouchMove}
                   onTouchEnd={handleItemTouchEnd}
+                  onMouseDown={(e) => handleItemMouseDown(e, 'event', event.id)}
                 >
                   <div className="event-color-bar" style={eCat ? { background: eCat.color } : {}} />
                   <div className="event-info">
@@ -239,6 +284,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                   onTouchStart={(e) => handleItemTouchStart(e, 'task', task.id)}
                   onTouchMove={handleItemTouchMove}
                   onTouchEnd={handleItemTouchEnd}
+                  onMouseDown={(e) => handleItemMouseDown(e, 'task', task.id)}
                 >
                   <div className="daily-task-header" onClick={() => handleClick('task', task)}>
                     <button
