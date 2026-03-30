@@ -79,20 +79,56 @@ export default function CalendarPage() {
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
 
-  // 주간 스트립 스와이프
-  const swipeRef = useRef<{ startX: number; startY: number } | null>(null)
+  // 주간 스트립 스와이프 (애니메이션 포함)
+  const swipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
+  const [stripOffset, setStripOffset] = useState(0)
+  const [stripAnimating, setStripAnimating] = useState(false)
+
   const handleStripTouchStart = useCallback((e: React.TouchEvent) => {
-    swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
+    setStripAnimating(false)
+    swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
   }, [])
+
+  const handleStripTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!swipeRef.current) return
+    const dx = e.touches[0].clientX - swipeRef.current.startX
+    const dy = e.touches[0].clientY - swipeRef.current.startY
+    if (!swipeRef.current.decided && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      swipeRef.current.decided = true
+      swipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy)
+    }
+    if (swipeRef.current.isHorizontal) {
+      setStripOffset(dx)
+    }
+  }, [])
+
   const handleStripTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!swipeRef.current) return
     const dx = e.changedTouches[0].clientX - swipeRef.current.startX
-    const dy = e.changedTouches[0].clientY - swipeRef.current.startY
+    const isHoriz = swipeRef.current.isHorizontal
     swipeRef.current = null
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx > 0) setSelectedDate((d) => subWeeks(d, 1))
-      else setSelectedDate((d) => addWeeks(d, 1))
+
+    if (isHoriz && Math.abs(dx) > 50) {
+      // 전환 애니메이션: 완전히 밀어내기
+      setStripAnimating(true)
+      setStripOffset(dx > 0 ? window.innerWidth : -window.innerWidth)
+      setTimeout(() => {
+        if (dx > 0) setSelectedDate((d) => subWeeks(d, 1))
+        else setSelectedDate((d) => addWeeks(d, 1))
+        setStripOffset(0)
+        setStripAnimating(false)
+      }, 200)
+    } else {
+      // 복귀 애니메이션
+      setStripAnimating(true)
+      setStripOffset(0)
+      setTimeout(() => setStripAnimating(false), 200)
     }
+  }, [])
+
+  const handleGoToday = useCallback(() => {
+    setSelectedDate(new Date())
+    setCurrentDate(new Date())
   }, [])
 
   const handlePrev = () => {
@@ -221,6 +257,7 @@ export default function CalendarPage() {
         <button className="cal-nav-btn" onClick={handlePrev}>&lt;</button>
         <span className="cal-nav-title">{getNavTitle()}</span>
         <button className="cal-nav-btn" onClick={handleNext}>&gt;</button>
+        <button className="cal-today-btn" onClick={handleGoToday}>오늘</button>
       </div>
 
       {view === 'month' && (
@@ -256,13 +293,24 @@ export default function CalendarPage() {
           {/* 고정 헤더 영역 */}
           <div className="day-view-header-pinned">
             {/* iPhone-style week strip */}
-            <div className="week-strip" onTouchStart={handleStripTouchStart} onTouchEnd={handleStripTouchEnd}>
+            <div
+              className="week-strip"
+              onTouchStart={handleStripTouchStart}
+              onTouchMove={handleStripTouchMove}
+              onTouchEnd={handleStripTouchEnd}
+            >
               <div className="week-strip-header">
                 {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
                   <div key={d} className={`ws-weekday ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>
                 ))}
               </div>
-              <div className="week-strip-days">
+              <div
+                className="week-strip-days"
+                style={{
+                  transform: stripOffset ? `translateX(${stripOffset}px)` : undefined,
+                  transition: stripAnimating ? 'transform 0.2s ease-out' : 'none',
+                }}
+              >
                 {weekDays.map((day) => {
                   const selected = isSameDay(day, selectedDate)
                   const today = isToday(day)

@@ -70,6 +70,7 @@
   justify-content: center;
   gap: 16px;
   margin-bottom: 12px;
+  position: relative;
 }
 
 .cal-nav-btn {
@@ -99,6 +100,24 @@
   text-align: center;
 }
 
+.cal-today-btn {
+  position: absolute;
+  right: 0;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cal-today-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
 .cal-daily-card {
   margin-top: 12px;
 }
@@ -110,6 +129,7 @@
   border-radius: 16px;
   box-shadow: var(--neu-convex);
   padding: 10px 4px;
+  overflow: hidden;
 }
 
 .week-strip-header {

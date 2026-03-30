@@ -86,61 +86,52 @@ export function subscribeRoutinesByDate(date: string, callback: (routines: Routi
     return () => {}
   }
 
-  // 기존 인스턴스 조회
   const q = query(routinesRef, where('date', '==', date), orderBy('order', 'asc'))
 
-  let isFirst = true
-  return onSnapshot(q, async (snapshot) => {
-    const existingRoutines = snapshot.docs.map((d) => ({
+  // 템플릿에서 누락된 인스턴스 자동 생성 (한번만 실행)
+  ;(async () => {
+    try {
+      const [routinesSnap, templatesSnap] = await Promise.all([
+        getDocs(q),
+        getDocs(query(templatesRef, orderBy('order', 'asc'))),
+      ])
+      const existingTemplateIds = new Set(routinesSnap.docs.map((d) => d.data().templateId))
+      const templates = templatesSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as RoutineTemplate[]
+      const activeTemplates = templates.filter((t) => t.startDate <= date && t.endDate >= date)
+      const now = Timestamp.now()
+
+      for (const tmpl of activeTemplates) {
+        if (!existingTemplateIds.has(tmpl.id)) {
+          const routineData: Record<string, unknown> = {
+            templateId: tmpl.id,
+            iconId: tmpl.iconId,
+            title: tmpl.title,
+            isCompleted: false,
+            date,
+            order: tmpl.order,
+            checkedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          }
+          if (tmpl.targetMl) {
+            routineData.targetMl = tmpl.targetMl
+            routineData.currentMl = 0
+          }
+          await addDoc(routinesRef, routineData)
+        }
+      }
+    } catch (err) {
+      console.warn('템플릿 동기화 실패:', err)
+    }
+  })()
+
+  // 실시간 리스너 (sync callback — 항상 최신 데이터 전달)
+  return onSnapshot(q, (snapshot) => {
+    const routines = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     })) as Routine[]
-
-    // 첫 로드 시 템플릿에서 누락된 인스턴스 자동 생성
-    if (isFirst) {
-      isFirst = false
-      try {
-        const templatesSnap = await getDocs(query(templatesRef, orderBy('order', 'asc')))
-        const templates = templatesSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as RoutineTemplate[]
-
-        const activeTemplates = templates.filter(
-          (t) => t.startDate <= date && t.endDate >= date,
-        )
-
-        const existingTemplateIds = new Set(existingRoutines.map((r) => r.templateId))
-        const now = Timestamp.now()
-
-        for (const tmpl of activeTemplates) {
-          if (!existingTemplateIds.has(tmpl.id)) {
-            const routineData: Record<string, unknown> = {
-              templateId: tmpl.id,
-              iconId: tmpl.iconId,
-              title: tmpl.title,
-              isCompleted: false,
-              date,
-              order: tmpl.order,
-              checkedAt: null,
-              createdAt: now,
-              updatedAt: now,
-            }
-            if (tmpl.targetMl) {
-              routineData.targetMl = tmpl.targetMl
-              routineData.currentMl = 0
-            }
-            await addDoc(routinesRef, routineData)
-          }
-        }
-      } catch (err) {
-        console.warn('템플릿 동기화 실패:', err)
-      }
-      // 인스턴스가 추가되면 onSnapshot이 다시 실행되므로 여기서 return
-      if (existingRoutines.length === 0) return
-    }
-
-    callback(existingRoutines)
+    callback(routines)
   })
 }
 

@@ -182,6 +182,13 @@
   cursor: pointer;
 }
 
+.daily-task-color-bar {
+  width: 3px;
+  border-radius: 2px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
 .daily-task-check {
   width: 20px;
   height: 20px;

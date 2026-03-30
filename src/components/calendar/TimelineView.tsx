@@ -445,25 +445,30 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       {/* 시간 없는 태스크 */}
       {untimedTasks.length > 0 && (
         <div className="tl-untimed">
-          {untimedTasks.map((task) => (
-            <div
-              key={task.id}
-              className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-              onClick={() => handleItemClick('task', task)}
-            >
-              <button
-                className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
-                onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+          {untimedTasks.map((task) => {
+            const cat = getCat(task.categoryId)
+            return (
+              <div
+                key={task.id}
+                className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                onClick={() => handleItemClick('task', task)}
               >
-                {task.isCompleted && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-              <span className={`tl-untimed-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-            </div>
-          ))}
+                <button
+                  className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                  style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
+                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                >
+                  {task.isCompleted && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+                {cat && <span className="tl-untimed-cat" style={{ color: cat.color }}>{cat.icon} {cat.name}</span>}
+                <span className={`tl-untimed-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -554,6 +559,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   <span className="tl-event-time">
                     {formatTimeKorean(displayStart)} ~ {displayEnd ? formatTimeKorean(displayEnd) : ''}
                   </span>
+                  {event.location && (
+                    <span className="tl-event-location">📍 {event.location}</span>
+                  )}
                 </div>
 
                 {groupTasks.length > 0 && (
@@ -568,6 +576,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                         <div
                           key={task.id}
                           className={`tl-nested-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                          style={taskCat ? { borderLeft: `3px solid ${taskCat.color}` } : undefined}
                           onClick={(e) => { e.stopPropagation(); handleItemClick('task', task) }}
                           onTouchStart={(e) => { e.stopPropagation(); taskHandlers.onTouchStart(e) }}
                           onTouchMove={taskHandlers.onTouchMove}
@@ -576,6 +585,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                         >
                           <button
                             className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                            style={!task.isCompleted && taskCat ? { boxShadow: `inset 0 0 0 2px ${taskCat.color}` } : undefined}
                             onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
                           >
                             {task.isCompleted && (
@@ -585,7 +595,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                             )}
                           </button>
                           {taskTime && <span className="tl-nested-time">{formatTimeKorean(taskTime)}</span>}
-                          {taskCat && <span className="tl-nested-cat">{taskCat.name}</span>}
+                          {taskCat && <span className="tl-nested-cat" style={{ color: taskCat.color }}>{taskCat.name}</span>}
                           <span className={`tl-nested-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
                         </div>
                       )
@@ -614,6 +624,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
                 style={{
                   top,
+                  ...(cat ? { borderLeft: `3px solid ${cat.color}`, borderColor: cat.color } : {}),
                   ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                 }}
                 onClick={() => handleItemClick('task', task)}
@@ -621,6 +632,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               >
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                  style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
                   onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
                 >
                   {task.isCompleted && (

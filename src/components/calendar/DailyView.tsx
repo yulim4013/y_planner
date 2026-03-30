@@ -279,6 +279,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
             const subItems = task.subItems || []
             const displayTime = task.isCompleted && task.completedTime ? formatTimeStr(task.completedTime) : task.dueTime ? formatTimeStr(task.dueTime) : null
             const isSwiped = swipedId === task.id
+            const taskCat = getCat(task.categoryId)
 
             return (
               <div key={task.id} className="daily-swipe-wrapper">
@@ -300,8 +301,10 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                   onMouseDown={(e) => handleItemMouseDown(e, 'task', task.id)}
                 >
                   <div className="daily-task-header" onClick={() => handleClick('task', task)}>
+                    {taskCat && <div className="daily-task-color-bar" style={{ background: taskCat.color }} />}
                     <button
                       className={`daily-task-check ${task.isCompleted ? 'done' : ''}`}
+                      style={!task.isCompleted && taskCat ? { boxShadow: `inset 0 0 0 2px ${taskCat.color}` } : undefined}
                       onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
                     >
                       {task.isCompleted && (
@@ -311,6 +314,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                       )}
                     </button>
                     <span className="daily-task-title">{task.title}</span>
+                    {taskCat && <span className="daily-cat-badge" style={{ background: `${taskCat.color}33`, color: taskCat.color }}>{taskCat.name}</span>}
                     <span className={`daily-task-priority priority-${task.priority}`}>{PRIORITY_LABELS[task.priority]}</span>
                     {displayTime && <span className={`daily-task-time ${task.isCompleted ? 'completed' : ''}`}>{displayTime}</span>}
                   </div>
