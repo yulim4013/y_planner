@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { toggleTaskComplete, deleteTask, updateTask } from '../../services/taskService'
-import { deleteEvent, updateEvent } from '../../services/eventService'
+import { toggleTaskComplete, deleteTask, updateTask, addTask } from '../../services/taskService'
+import { deleteEvent, updateEvent, addEvent } from '../../services/eventService'
 import { toggleRoutineComplete } from '../../services/routineService'
 import type { CalendarEvent, Task, Category, Routine } from '../../types'
 import './TimelineView.css'
@@ -170,7 +170,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         } else {
           // No significant drag → show action bar
           const rect = element.getBoundingClientRect()
-          const bw = 160
+          const bw = 220
           let bt = rect.bottom + 8
           let bl = rect.left + rect.width / 2
           if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
@@ -373,6 +373,40 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActionBar(null)
   }
 
+  const handleDuplicate = async () => {
+    if (!actionBar) return
+    if (actionBar.type === 'event') {
+      const ev = eventsRef.current.find((e) => e.id === actionBar.id)
+      if (ev) {
+        await addEvent({
+          title: ev.title ? `${ev.title} (복사)` : '(제목 없음)',
+          description: ev.description,
+          startDate: ev.startDate.toDate(),
+          endDate: ev.endDate.toDate(),
+          startTime: ev.startTime,
+          endTime: ev.endTime,
+          isAllDay: ev.isAllDay,
+          categoryId: ev.categoryId,
+          location: ev.location,
+        })
+      }
+    } else {
+      const t = tasks.find((t) => t.id === actionBar.id)
+      if (t) {
+        await addTask({
+          title: `${t.title} (복사)`,
+          description: t.description,
+          priority: t.priority,
+          dueDate: t.dueDate?.toDate() || null,
+          dueTime: t.dueTime,
+          categoryId: t.categoryId,
+          subItems: t.subItems?.map((si) => ({ ...si, isCompleted: false })),
+        })
+      }
+    }
+    setActionBar(null)
+  }
+
   // Click guard: prevent click after long-press / drag
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
     if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
@@ -502,11 +536,14 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   ...(isMoving ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                   ...(isResizing ? { zIndex: 100 } : {}),
                 }}
+
+                onClick={() => handleItemClick('event', event)}
+                {...handlers}
               >
                 {/* Top resize handle */}
                 <div className="tl-resize-handle tl-resize-top" {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />
 
-                <div className="tl-event-header" onClick={() => handleItemClick('event', event)} {...handlers}>
+                <div className="tl-event-header">
                   <div className="tl-event-header-top">
                     <span className="tl-event-cat-icon">{eventCat?.icon || ''}</span>
                     <span className="tl-event-cat-name">{eventCat?.name || event.title}</span>
@@ -531,8 +568,11 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                         <div
                           key={task.id}
                           className={`tl-nested-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                          onClick={() => handleItemClick('task', task)}
-                          {...taskHandlers}
+                          onClick={(e) => { e.stopPropagation(); handleItemClick('task', task) }}
+                          onTouchStart={(e) => { e.stopPropagation(); taskHandlers.onTouchStart(e) }}
+                          onTouchMove={taskHandlers.onTouchMove}
+                          onTouchEnd={taskHandlers.onTouchEnd}
+                          onMouseDown={(e) => { e.stopPropagation(); taskHandlers.onMouseDown(e) }}
                         >
                           <button
                             className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
@@ -628,6 +668,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             onTouchStart={(e) => e.stopPropagation()}
           >
             <button className="action-bar-btn" onClick={handleEdit}>수정</button>
+            <button className="action-bar-btn" onClick={handleDuplicate}>복제</button>
             <button className="action-bar-btn action-delete" onClick={handleDelete}>삭제</button>
           </div>
         </>

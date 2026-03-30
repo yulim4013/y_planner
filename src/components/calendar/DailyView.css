@@ -153,6 +153,15 @@
   color: var(--color-text-tertiary);
 }
 
+.event-location-link {
+  color: #2DB400;
+  cursor: pointer;
+}
+
+.event-location-link:active {
+  text-decoration: underline;
+}
+
 /* 할 일 */
 .daily-task {
   padding: 8px 4px;

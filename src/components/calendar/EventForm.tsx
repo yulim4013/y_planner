@@ -167,12 +167,26 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
           </div>
         )}
 
-        <input
-          className="event-form-input"
-          placeholder="장소 (선택)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+        <div className="event-form-location-row">
+          <input
+            className="event-form-input"
+            placeholder="장소 (선택)"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
+          {location.trim() && (
+            <button
+              type="button"
+              className="event-location-map-btn"
+              onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(location.trim())}`, '_blank')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            </button>
+          )}
+        </div>
 
         <CategoryPicker type="event" value={categoryId} onChange={setCategoryId} />
 

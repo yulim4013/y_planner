@@ -21,6 +21,35 @@
   border-color: var(--color-primary);
 }
 
+.event-form-location-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.event-form-location-row .event-form-input {
+  flex: 1;
+}
+
+.event-location-map-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: #2DB400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.event-location-map-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
 .event-form-textarea {
   width: 100%;
   padding: 12px 14px;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   addMonths, subMonths, addWeeks, subWeeks,
   isSameDay, startOfWeek, endOfWeek, eachDayOfInterval,
@@ -78,6 +78,22 @@ export default function CalendarPage() {
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
+
+  // 주간 스트립 스와이프
+  const swipeRef = useRef<{ startX: number; startY: number } | null>(null)
+  const handleStripTouchStart = useCallback((e: React.TouchEvent) => {
+    swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
+  }, [])
+  const handleStripTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!swipeRef.current) return
+    const dx = e.changedTouches[0].clientX - swipeRef.current.startX
+    const dy = e.changedTouches[0].clientY - swipeRef.current.startY
+    swipeRef.current = null
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 0) setSelectedDate((d) => subWeeks(d, 1))
+      else setSelectedDate((d) => addWeeks(d, 1))
+    }
+  }, [])
 
   const handlePrev = () => {
     if (view === 'month') setCurrentDate(subMonths(currentDate, 1))
@@ -240,7 +256,7 @@ export default function CalendarPage() {
           {/* 고정 헤더 영역 */}
           <div className="day-view-header-pinned">
             {/* iPhone-style week strip */}
-            <div className="week-strip">
+            <div className="week-strip" onTouchStart={handleStripTouchStart} onTouchEnd={handleStripTouchEnd}>
               <div className="week-strip-header">
                 {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
                   <div key={d} className={`ws-weekday ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>

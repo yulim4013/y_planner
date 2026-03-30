@@ -249,7 +249,14 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                     <span className="event-time">
                       {event.isAllDay ? '종일' : `${event.startTime || ''} ${event.endTime ? `~ ${event.endTime}` : ''}`}
                     </span>
-                    {event.location && <span className="event-location">{event.location}</span>}
+                    {event.location && (
+                      <span
+                        className="event-location event-location-link"
+                        onClick={(e) => { e.stopPropagation(); window.open(`https://map.naver.com/v5/search/${encodeURIComponent(event.location!)}`, '_blank') }}
+                      >
+                        📍 {event.location}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
