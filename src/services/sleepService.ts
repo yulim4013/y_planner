@@ -8,6 +8,7 @@ import type { SleepRecord } from '../types'
 
 function getSleepRef() {
   const uid = useAuthStore.getState().user?.uid
+  console.log('[sleep] getSleepRef uid:', uid)
   if (!uid || !db) return null
   return collection(db, 'users', uid, 'sleepRecords')
 }
@@ -29,13 +30,18 @@ export function subscribeSleepForDate(
   const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`
   const targetDates = new Set([prevDateStr, date])
 
+  console.log('[sleep] subscribing for dates:', date, prevDateStr)
+
   // 인덱스 의존 없이 전체 조회 후 클라이언트 필터링
   return onSnapshot(ref,
     (snapshot) => {
-      const records = snapshot.docs
-        .map((d) => ({ id: d.id, ...d.data() } as SleepRecord))
+      console.log('[sleep] snapshot docs count:', snapshot.docs.length)
+      const allRecords = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as SleepRecord))
+      console.log('[sleep] all records:', allRecords.map((r) => ({ type: r.type, date: r.date })))
+      const records = allRecords
         .filter((r) => targetDates.has(r.date))
         .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
+      console.log('[sleep] filtered records:', records.length)
       callback(records)
     },
     (error) => {

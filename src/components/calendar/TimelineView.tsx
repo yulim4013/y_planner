@@ -237,7 +237,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     try { navigator.vibrate?.(25) } catch {}
   }, [])
 
-  // ── Item handlers (long-press → drag) for touch + mouse ──
+  // ── Item handlers (long-press → activate/drag) for touch + mouse ──
   const makeItemHandlers = (type: 'event' | 'task', id: string, originalStartMin: number, originalEndMin?: number) => {
     const endMin = originalEndMin ?? originalStartMin + 60
 
@@ -250,7 +250,13 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
         lpTimerRef.current = setTimeout(() => {
           lpTriggeredRef.current = true
-          startDragMode(type, id, 'move', el, originalStartMin, endMin, touch.clientY, 'touch')
+          // 이벤트 활성화 (리사이즈 핸들 표시) - 이미 활성화면 드래그 시작
+          if (type === 'event' && activeEventId !== id) {
+            setActiveEventId(id)
+            try { navigator.vibrate?.(25) } catch {}
+          } else {
+            startDragMode(type, id, 'move', el, originalStartMin, endMin, touch.clientY, 'touch')
+          }
           lpTimerRef.current = null
         }, 500)
       },
@@ -278,11 +284,20 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
         const onMove = (ev: MouseEvent) => {
           if (Math.abs(ev.clientY - startPos.y) > 5) {
-            lpTriggeredRef.current = true
-            document.removeEventListener('mousemove', onMove)
-            document.removeEventListener('mouseup', onUp)
-            preMouseRef.current = null
-            startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
+            // 활성화된 이벤트만 드래그 가능
+            if (type === 'event' && activeEventId === id) {
+              lpTriggeredRef.current = true
+              document.removeEventListener('mousemove', onMove)
+              document.removeEventListener('mouseup', onUp)
+              preMouseRef.current = null
+              startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
+            } else if (type === 'task') {
+              lpTriggeredRef.current = true
+              document.removeEventListener('mousemove', onMove)
+              document.removeEventListener('mouseup', onUp)
+              preMouseRef.current = null
+              startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
+            }
           }
         }
         const onUp = () => {
@@ -296,10 +311,18 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         document.addEventListener('mouseup', onUp)
         preMouseRef.current = { moveFn: onMove, upFn: onUp }
       },
+      onDoubleClick: (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (type === 'event') {
+          setActiveEventId(activeEventId === id ? null : id)
+        }
+      },
     }
   }
 
-  // ── Resize handle handlers (immediate, no long-press) ──
+  // ── Active event (long-press/double-click activates resize handles) ──
+  const [activeEventId, setActiveEventId] = useState<string | null>(null)
+
   const makeResizeHandlers = (eventId: string, mode: 'resize-top' | 'resize-bottom', startMin: number, endMin: number) => ({
     onTouchStart: (e: React.TouchEvent) => {
       e.stopPropagation()
@@ -420,23 +443,74 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
     if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
     if (actionBar || draggedId) return
+    // 다른 곳 클릭 시 활성 이벤트 해제
+    if (activeEventId && (type !== 'event' || (item as CalendarEvent).id !== activeEventId)) {
+      setActiveEventId(null)
+    }
     if (type === 'event') onEditEvent(item as CalendarEvent)
     else onEditTask(item as Task)
   }
 
-  const handleGridClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!onAddEventAtTime) return
-    // Only handle clicks directly on the grid inner or hour rows
-    const target = e.target as HTMLElement
-    if (!target.classList.contains('tl-grid-inner') && !target.classList.contains('tl-hour-line') && !target.classList.contains('tl-hour-row')) return
+  // 그리드 빈 칸: 꾹 누르기(touch) / 더블클릭(mouse)으로 일정 추가
+  const gridLpRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const gridTouchStartRef = useRef({ x: 0, y: 0 })
+
+  const getTimeFromY = useCallback((clientY: number) => {
     const grid = gridRef.current
-    if (!grid) return
+    if (!grid) return null
     const rect = grid.getBoundingClientRect()
-    const y = e.clientY - rect.top + grid.scrollTop
+    const y = clientY - rect.top + grid.scrollTop
     const minutes = Math.floor((y / HOUR_HEIGHT) * 60 / 15) * 15
-    const clampedMin = Math.max(0, Math.min(23 * 60 + 45, minutes))
-    onAddEventAtTime(minutesToTime(clampedMin))
-  }, [onAddEventAtTime])
+    return Math.max(0, Math.min(23 * 60 + 45, minutes))
+  }, [])
+
+  const isGridTarget = (target: HTMLElement) =>
+    target.classList.contains('tl-grid-inner') || target.classList.contains('tl-hour-line') || target.classList.contains('tl-hour-row')
+
+  const handleGridTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!onAddEventAtTime) return
+    if (!isGridTarget(e.target as HTMLElement)) return
+    const touch = e.touches[0]
+    gridTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    gridLpRef.current = setTimeout(() => {
+      gridLpRef.current = null
+      // 활성 이벤트 해제
+      setActiveEventId(null)
+      const min = getTimeFromY(touch.clientY)
+      if (min !== null) {
+        try { navigator.vibrate?.(25) } catch {}
+        onAddEventAtTime(minutesToTime(min))
+      }
+    }, 500)
+  }, [onAddEventAtTime, getTimeFromY])
+
+  const handleGridTouchMove = useCallback((e: React.TouchEvent) => {
+    if (gridLpRef.current) {
+      const dx = e.touches[0].clientX - gridTouchStartRef.current.x
+      const dy = e.touches[0].clientY - gridTouchStartRef.current.y
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        clearTimeout(gridLpRef.current)
+        gridLpRef.current = null
+      }
+    }
+  }, [])
+
+  const handleGridTouchEnd = useCallback(() => {
+    if (gridLpRef.current) { clearTimeout(gridLpRef.current); gridLpRef.current = null }
+  }, [])
+
+  const handleGridDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onAddEventAtTime) return
+    if (!isGridTarget(e.target as HTMLElement)) return
+    setActiveEventId(null)
+    const min = getTimeFromY(e.clientY)
+    if (min !== null) onAddEventAtTime(minutesToTime(min))
+  }, [onAddEventAtTime, getTimeFromY])
+
+  const handleGridClick = useCallback(() => {
+    // 그리드 빈 칸 싱글 클릭 → 활성 이벤트 해제만
+    setActiveEventId(null)
+  }, [])
 
   // 수면 블록 계산
   const sleepBlocks: { top: number; height: number; label: string; detail: string }[] = []
@@ -540,7 +614,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
       {/* 타임라인 그리드 */}
       <div className="tl-grid" ref={gridRef}>
-        <div className="tl-grid-inner" style={{ height: 24 * HOUR_HEIGHT }} onClick={handleGridClick}>
+        <div
+          className="tl-grid-inner"
+          style={{ height: 24 * HOUR_HEIGHT }}
+          onClick={handleGridClick}
+          onDoubleClick={handleGridDoubleClick}
+          onTouchStart={handleGridTouchStart}
+          onTouchMove={handleGridTouchMove}
+          onTouchEnd={handleGridTouchEnd}
+        >
           {hours.map((h) => (
             <div key={h} className="tl-hour-row" style={{ top: h * HOUR_HEIGHT }}>
               <span className="tl-hour-label">{getHourLabel(h)}</span>
@@ -595,10 +677,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               }
             }
 
+            const isActive = activeEventId === event.id
+
             return (
               <div
                 key={event.id}
-                className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
+                className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${isActive ? 'tl-active' : ''} ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
                 style={{
                   top: blockTop,
                   minHeight,
@@ -611,8 +695,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 onClick={() => handleItemClick('event', event)}
                 {...handlers}
               >
-                {/* Top resize handle */}
-                <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />
+                {/* Top resize handle - only when active */}
+                {isActive && <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />}
 
                 <div className="tl-event-header">
                   <div className="tl-event-header-top">
@@ -671,8 +755,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   </div>
                 )}
 
-                {/* Bottom resize handle */}
-                <div className="tl-resize-handle tl-resize-bottom" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-bottom', startMin, endMin)} />
+                {/* Bottom resize handle - only when active */}
+                {isActive && <div className="tl-resize-handle tl-resize-bottom" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-bottom', startMin, endMin)} />}
               </div>
             )
           })}

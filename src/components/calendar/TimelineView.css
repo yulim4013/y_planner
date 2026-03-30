@@ -70,7 +70,6 @@
 }
 
 .tl-done {
-  text-decoration: line-through;
   color: var(--color-text-tertiary);
 }
 
@@ -226,7 +225,7 @@
 }
 
 .tl-task-check.done {
-  background: var(--color-primary);
+  background: #d5d5d5;
   box-shadow: none;
 }
 
@@ -241,7 +240,7 @@
   padding: 5px 10px;
   cursor: pointer;
   z-index: 2;
-  background: var(--color-surface);
+  background: rgba(240, 238, 234, 0.6);
   border-radius: 6px;
   border: 1px solid var(--color-divider);
   touch-action: manipulation;
@@ -477,6 +476,17 @@
 /* 이벤트 블록에 터치/포커스 시 핸들 강조 */
 .tl-event-block:active .tl-resize-handle::after {
   background: rgba(0, 0, 0, 0.2);
+}
+
+/* 활성화된 이벤트: 리사이즈 핸들 강조 */
+.tl-active {
+  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.5);
+  z-index: 10;
+}
+
+.tl-active .tl-resize-handle::after {
+  background: rgba(0, 0, 0, 0.3);
+  width: 32px;
 }
 
 /* 드래그 중일 때 핸들 강조 */
