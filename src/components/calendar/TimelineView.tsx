@@ -262,42 +262,30 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       onMouseDown: (e: React.MouseEvent) => {
         if (e.button !== 0) return
         if (actionBar) { setActionBar(null); return }
-        e.preventDefault() // Prevent browser text-selection / native drag
+        e.preventDefault()
         lpTriggeredRef.current = false
         const el = e.currentTarget as HTMLElement
         const startPos = { x: e.clientX, y: e.clientY }
 
-        const onPreMove = (ev: MouseEvent) => {
-          if (Math.abs(ev.clientX - startPos.x) > 10 || Math.abs(ev.clientY - startPos.y) > 10) {
-            if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
-            cleanupPre()
+        const onMove = (ev: MouseEvent) => {
+          if (Math.abs(ev.clientY - startPos.y) > 5) {
+            lpTriggeredRef.current = true
+            document.removeEventListener('mousemove', onMove)
+            document.removeEventListener('mouseup', onUp)
+            preMouseRef.current = null
+            startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
           }
         }
-        const onPreUp = () => {
-          if (lpTimerRef.current) {
-            // Quick release before long-press → treat as click
-            clearTimeout(lpTimerRef.current)
-            lpTimerRef.current = null
-            el.click()
-          }
-          cleanupPre()
-        }
-        const cleanupPre = () => {
-          document.removeEventListener('mousemove', onPreMove)
-          document.removeEventListener('mouseup', onPreUp)
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
           preMouseRef.current = null
+          if (!lpTriggeredRef.current) el.click()
         }
 
-        document.addEventListener('mousemove', onPreMove)
-        document.addEventListener('mouseup', onPreUp)
-        preMouseRef.current = { moveFn: onPreMove, upFn: onPreUp }
-
-        lpTimerRef.current = setTimeout(() => {
-          lpTriggeredRef.current = true
-          cleanupPre()
-          startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
-          lpTimerRef.current = null
-        }, 500)
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        preMouseRef.current = { moveFn: onMove, upFn: onUp }
       },
     }
   }

@@ -12,10 +12,12 @@ import {
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
+import { getBudgetCategory } from '../../utils/constants'
 import EventForm from '../calendar/EventForm'
 import { useUIStore } from '../../store/uiStore'
 import { formatNumber } from '../../utils/currencyUtils'
 import { format } from 'date-fns'
+import { Timestamp } from 'firebase/firestore'
 import type { Task, CalendarEvent, Routine, RoutineTemplate, SleepRecord, Category, Transaction } from '../../types'
 import './DashboardPage.css'
 
@@ -222,6 +224,38 @@ export default function DashboardPage() {
   const sleepHours = Math.floor(sleepInfo.durationMin / 60)
   const sleepMins = sleepInfo.durationMin % 60
 
+  // 루틴 낙관적 업데이트 핸들러
+  const handleToggleRoutine = async (routineId: string, currentCompleted: boolean) => {
+    const willComplete = !currentCompleted
+    setRoutines(prev => prev.map(r =>
+      r.id === routineId
+        ? { ...r, isCompleted: willComplete, checkedAt: willComplete ? Timestamp.now() : null } as Routine
+        : r
+    ))
+    await toggleRoutineComplete(routineId, currentCompleted)
+  }
+
+  const handleIncrementWater = async (routineId: string, currentMl: number, targetMl: number) => {
+    const newMl = currentMl + 250
+    const isComplete = newMl >= targetMl
+    setRoutines(prev => prev.map(r =>
+      r.id === routineId
+        ? { ...r, currentMl: newMl, isCompleted: isComplete, checkedAt: isComplete ? Timestamp.now() : null } as Routine
+        : r
+    ))
+    await incrementWater(routineId, currentMl, targetMl)
+  }
+
+  const handleDecrementWater = async (routineId: string, currentMl: number) => {
+    const newMl = Math.max(0, currentMl - 250)
+    setRoutines(prev => prev.map(r =>
+      r.id === routineId
+        ? { ...r, currentMl: newMl, isCompleted: false, checkedAt: null } as Routine
+        : r
+    ))
+    await decrementWater(routineId, currentMl)
+  }
+
   return (
     <div className="page">
       <Header title="HOME" right={
@@ -297,7 +331,7 @@ export default function DashboardPage() {
                       </div>
                       <button
                         className="water-drop-btn"
-                        onClick={() => incrementWater(routine.id, routine.currentMl || 0, routine.targetMl!)}
+                        onClick={() => handleIncrementWater(routine.id, routine.currentMl || 0, routine.targetMl!)}
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill={routine.isCompleted ? '#87CEEB' : 'none'} stroke="var(--color-icon)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 2c0 0-7 8.5-7 13a7 7 0 0014 0c0-4.5-7-13-7-13z" />
@@ -318,7 +352,7 @@ export default function DashboardPage() {
                       {(routine.currentMl || 0) > 0 && (
                         <button
                           className="water-undo"
-                          onClick={() => decrementWater(routine.id, routine.currentMl || 0)}
+                          onClick={() => handleDecrementWater(routine.id, routine.currentMl || 0)}
                         >−</button>
                       )}
                       <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
@@ -329,7 +363,7 @@ export default function DashboardPage() {
                   <>
                     <button
                       className={`routine-check ${routine.isCompleted ? 'done' : ''}`}
-                      onClick={() => toggleRoutineComplete(routine.id, routine.isCompleted)}
+                      onClick={() => handleToggleRoutine(routine.id, routine.isCompleted)}
                     >
                       {routine.isCompleted && (
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -576,15 +610,21 @@ export default function DashboardPage() {
                     <span className="dash-expense-total-label">오늘 총 지출</span>
                     <span className="dash-expense-total-amount">-{formatNumber(totalExpense)}원</span>
                   </div>
-                  {todayExpenses.map((tx) => (
-                    <div key={tx.id} className="dash-expense-item">
-                      <span className="dash-expense-info">
-                        <span className="dash-expense-memo">{tx.memo || tx.category}</span>
-                        {tx.memo && <span className="dash-expense-category">{tx.category}{tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}</span>}
-                      </span>
-                      <span className="dash-expense-amount">-{formatNumber(tx.amount)}원</span>
-                    </div>
-                  ))}
+                  {todayExpenses.map((tx) => {
+                    const cat = getBudgetCategory(tx.category)
+                    return (
+                      <div key={tx.id} className="dash-expense-item">
+                        <span className="dash-expense-icon" style={{ background: cat?.color || '#eee' }}>
+                          {cat?.icon || '📦'}
+                        </span>
+                        <span className="dash-expense-info">
+                          <span className="dash-expense-memo">{tx.memo || tx.category}</span>
+                          {tx.memo && <span className="dash-expense-category">{tx.category}{tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}</span>}
+                        </span>
+                        <span className="dash-expense-amount">-{formatNumber(tx.amount)}원</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -4,6 +4,7 @@ import { useUIStore } from '../../store/uiStore'
 import BottomSheet from '../common/BottomSheet'
 import TaskForm from '../tasks/TaskForm'
 import EventForm from '../calendar/EventForm'
+import TransactionForm from '../more/TransactionForm'
 import './AddNewSheet.css'
 
 const addOptions: { icon: (ReactElement); label: string; action: string }[] = [
@@ -57,6 +58,7 @@ export default function AddNewSheet() {
   const navigate = useNavigate()
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [expenseFormOpen, setExpenseFormOpen] = useState(false)
 
   const handleSelect = (action: string) => {
     close()
@@ -67,7 +69,7 @@ export default function AddNewSheet() {
     } else if (action === 'diary') {
       navigate('/diary')
     } else if (action === 'expense') {
-      navigate('/budget')
+      setExpenseFormOpen(true)
     }
   }
 
@@ -96,6 +98,11 @@ export default function AddNewSheet() {
       <EventForm
         isOpen={eventFormOpen}
         onClose={() => setEventFormOpen(false)}
+      />
+
+      <TransactionForm
+        isOpen={expenseFormOpen}
+        onClose={() => setExpenseFormOpen(false)}
       />
     </>
   )
