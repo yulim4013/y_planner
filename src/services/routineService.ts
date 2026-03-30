@@ -214,6 +214,12 @@ export async function decrementWater(routineId: string, currentMl: number) {
   })
 }
 
+export async function updateRoutineOrder(routineId: string, newOrder: number) {
+  const ref = getRoutinesRef()
+  if (!ref) return
+  await updateDoc(doc(ref, routineId), { order: newOrder, updatedAt: Timestamp.now() })
+}
+
 export async function deleteRoutine(routineId: string) {
   const ref = getRoutinesRef()
   if (!ref) return

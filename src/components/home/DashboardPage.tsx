@@ -7,13 +7,14 @@ import { subscribeEvents } from '../../services/eventService'
 import {
   subscribeRoutinesByDate, addRoutineTemplate, addRoutine,
   toggleRoutineComplete, deleteRoutine, incrementWater, decrementWater,
-  subscribeActiveTemplates, deleteRoutineTemplate,
+  subscribeActiveTemplates, deleteRoutineTemplate, updateRoutineOrder,
 } from '../../services/routineService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
 import { getBudgetCategory } from '../../utils/constants'
 import EventForm from '../calendar/EventForm'
+import TaskForm from '../tasks/TaskForm'
 import { useUIStore } from '../../store/uiStore'
 import { formatNumber } from '../../utils/currencyUtils'
 import { format } from 'date-fns'
@@ -97,6 +98,8 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [eventFormOpen, setEventFormOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
+  const [taskFormOpen, setTaskFormOpen] = useState(false)
+  const [editTask, setEditTask] = useState<Task | null>(null)
   const [showRoutineForm, setShowRoutineForm] = useState(false)
   const [showTemplateList, setShowTemplateList] = useState(false)
   const [selectedIconId, setSelectedIconId] = useState(ROUTINE_ICONS[0].id)
@@ -256,6 +259,20 @@ export default function DashboardPage() {
     await decrementWater(routineId, currentMl)
   }
 
+  const handleMoveRoutine = async (index: number, direction: 'up' | 'down') => {
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (swapIndex < 0 || swapIndex >= routines.length) return
+    const newRoutines = [...routines]
+    const temp = newRoutines[index]
+    newRoutines[index] = newRoutines[swapIndex]
+    newRoutines[swapIndex] = temp
+    setRoutines(newRoutines)
+    await Promise.all([
+      updateRoutineOrder(newRoutines[index].id, index),
+      updateRoutineOrder(newRoutines[swapIndex].id, swapIndex),
+    ])
+  }
+
   return (
     <div className="page">
       <Header title="HOME" right={
@@ -316,7 +333,7 @@ export default function DashboardPage() {
           )}
 
           <div className="routine-list">
-            {routines.map((routine) => (
+            {routines.map((routine, idx) => (
               <div key={routine.id} className="routine-item">
                 {routine.iconId === 'water' && routine.targetMl ? (
                   /* 물 마시기 - 인라인 바 UI */
@@ -355,6 +372,10 @@ export default function DashboardPage() {
                           onClick={() => handleDecrementWater(routine.id, routine.currentMl || 0)}
                         >−</button>
                       )}
+                      <div className="routine-order-btns">
+                        {idx > 0 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'up')}>▲</button>}
+                        {idx < routines.length - 1 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'down')}>▼</button>}
+                      </div>
                       <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                     </div>
                   </div>
@@ -378,6 +399,10 @@ export default function DashboardPage() {
                     <span className={`routine-title ${routine.isCompleted ? 'done-text' : ''}`}>
                       {routine.title}
                     </span>
+                    <div className="routine-order-btns">
+                      {idx > 0 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'up')}>▲</button>}
+                      {idx < routines.length - 1 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'down')}>▼</button>}
+                    </div>
                     <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                   </>
                 )}
@@ -554,10 +579,10 @@ export default function DashboardPage() {
           ) : (
             <div className="dash-task-list">
               {todayTasks.map((task) => (
-                <div key={task.id} className="dash-task-item">
+                <div key={task.id} className="dash-task-item" onClick={() => { setEditTask(task); setTaskFormOpen(true) }}>
                   <button
                     className={`dash-task-check ${task.isCompleted ? 'done' : ''}`}
-                    onClick={() => toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)}
+                    onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
                   >
                     {task.isCompleted && (
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -637,6 +662,12 @@ export default function DashboardPage() {
         onClose={() => { setEventFormOpen(false); setEditEvent(null) }}
         editEvent={editEvent}
         defaultDate={today}
+      />
+
+      <TaskForm
+        isOpen={taskFormOpen}
+        onClose={() => { setTaskFormOpen(false); setEditTask(null) }}
+        editTask={editTask}
       />
     </div>
   )

@@ -171,14 +171,6 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
             onChange={(e) => setName(e.target.value)}
           />
 
-          <input
-            className="cat-form-input"
-            placeholder="아이콘 (이모지)"
-            value={icon}
-            onChange={(e) => setIcon(e.target.value)}
-            maxLength={2}
-          />
-
           <div className="cat-form-row">
             <label className="cat-form-label">유형</label>
             <div className="cat-type-selector">
@@ -224,6 +216,20 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
                   type="button"
                 />
               ))}
+              <label className="cat-color-picker-btn" style={{ background: PASTEL_COLORS.some(c => c.value === color) ? '#ddd' : color }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 22l1-1h3l9-9" />
+                  <path d="M15 12l-8.5 8.5" />
+                  <path d="M16 6l2.3-2.3a1 1 0 011.4 0l.6.6a1 1 0 010 1.4L18 8" />
+                  <path d="M15 5l4 4" />
+                </svg>
+                <input
+                  type="color"
+                  className="cat-color-native-input"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                />
+              </label>
             </div>
           </div>
 

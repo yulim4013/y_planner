@@ -190,6 +190,29 @@
   border-radius: 8px;
 }
 
+.routine-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.routine-order-btn {
+  font-size: 8px;
+  color: var(--color-text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.routine-order-btn:active {
+  opacity: 1;
+  color: var(--color-text);
+}
+
 /* 물 마시기 루틴 - 인라인 바 */
 .water-routine {
   width: 100%;
@@ -530,6 +553,11 @@
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+
+.dash-task-item:active {
+  opacity: 0.7;
 }
 
 .dash-task-item:last-child {

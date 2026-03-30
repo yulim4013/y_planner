@@ -15,8 +15,8 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [filter, setFilter] = useState<FilterType>('all')
-  const [sort, setSort] = useState<SortType>('date')
+  const [filter, setFilter] = useState<FilterType>(() => (localStorage.getItem('taskFilter') as FilterType) || 'all')
+  const [sort, setSort] = useState<SortType>(() => (localStorage.getItem('taskSort') as SortType) || 'date')
   const [formOpen, setFormOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -102,6 +102,16 @@ export default function TasksPage() {
   const todoCount = threeDayTasks.filter((t) => !t.isCompleted).length
   const doneCount = threeDayTasks.filter((t) => t.isCompleted).length
 
+  const handleSetFilter = (f: FilterType) => {
+    setFilter(f)
+    localStorage.setItem('taskFilter', f)
+  }
+
+  const handleSetSort = (s: SortType) => {
+    setSort(s)
+    localStorage.setItem('taskSort', s)
+  }
+
   const handleEdit = (task: Task) => {
     setEditTask(task)
     setFormOpen(true)
@@ -122,35 +132,35 @@ export default function TasksPage() {
         <div className="task-sort">
           <button
             className={`sort-btn ${sort === 'date' ? 'active' : ''}`}
-            onClick={() => setSort('date')}
+            onClick={() => handleSetSort('date')}
           >
             시간순
           </button>
           <button
             className={`sort-btn ${sort === 'priority' ? 'active' : ''}`}
-            onClick={() => setSort('priority')}
+            onClick={() => handleSetSort('priority')}
           >
             중요도순
           </button>
           <button
             className={`sort-btn ${sort === 'category' ? 'active' : ''}`}
-            onClick={() => setSort('category')}
+            onClick={() => handleSetSort('category')}
           >
             카테고리
           </button>
         </div>
         <div className="task-filters">
-          <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
+          <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => handleSetFilter('all')}>
             전체 ({threeDayTasks.length})
           </button>
-          <button className={`filter-btn ${filter === 'todo' ? 'active' : ''}`} onClick={() => setFilter('todo')}>
+          <button className={`filter-btn ${filter === 'todo' ? 'active' : ''}`} onClick={() => handleSetFilter('todo')}>
             진행중 ({todoCount})
           </button>
-          <button className={`filter-btn ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')}>
+          <button className={`filter-btn ${filter === 'done' ? 'active' : ''}`} onClick={() => handleSetFilter('done')}>
             완료 ({doneCount})
           </button>
           {overdueTasks.length > 0 && (
-            <button className={`filter-btn filter-overdue ${filter === 'overdue' ? 'active' : ''}`} onClick={() => setFilter('overdue')}>
+            <button className={`filter-btn filter-overdue ${filter === 'overdue' ? 'active' : ''}`} onClick={() => handleSetFilter('overdue')}>
               미완료 ({overdueTasks.length})
             </button>
           )}
