@@ -2,7 +2,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -31,19 +30,27 @@ export function subscribeSleepForDate(
   const prevDate = new Date(y, m - 1, d - 1)
   const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`
 
+  // composite index 불필요하도록 orderBy 제거, 클라이언트 정렬
   const q = query(
     ref,
     where('date', 'in', [prevDateStr, date]),
-    orderBy('timestamp', 'asc'),
   )
 
-  return onSnapshot(q, (snapshot) => {
-    const records = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as SleepRecord[]
-    callback(records)
-  })
+  return onSnapshot(q,
+    (snapshot) => {
+      const records = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as SleepRecord[]
+      // 클라이언트에서 timestamp 기준 정렬
+      records.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
+      callback(records)
+    },
+    (error) => {
+      console.error('수면 기록 구독 에러:', error)
+      callback([])
+    },
+  )
 }
 
 // 수면 시간 계산: 마지막 sleep -> 첫 wake 쌍 찾기

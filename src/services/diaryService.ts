@@ -70,8 +70,12 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   }
 
   try {
-    await withTimeout(uploadBytes(storageRef, uploadFile), 30000, 'uploadBytes')
+    const metadata = { contentType: uploadFile.type || 'image/jpeg' }
+    console.log('[diary] uploading:', storagePath, 'size:', uploadFile.size, 'type:', metadata.contentType)
+    await withTimeout(uploadBytes(storageRef, uploadFile, metadata), 30000, 'uploadBytes')
+    console.log('[diary] upload done, getting URL...')
     const url = await withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL')
+    console.log('[diary] got URL:', url.slice(0, 60) + '...')
 
     return {
       url,
@@ -80,7 +84,7 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
       uploadedAt: Timestamp.now(),
     }
   } catch (err) {
-    console.error('uploadDiaryPhoto failed:', err)
+    console.error('[diary] uploadDiaryPhoto failed at:', storagePath, err)
     throw err // re-throw so DiaryForm can show error
   }
 }

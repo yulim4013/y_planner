@@ -18,8 +18,9 @@ import { subscribeTasks, updateTask } from '../../services/taskService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeRoutinesByDate } from '../../services/routineService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
+import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { getMonthYear } from '../../utils/dateUtils'
-import type { CalendarEvent, Task, Category, Routine, Transaction } from '../../types'
+import type { CalendarEvent, Task, Category, Routine, Transaction, SleepRecord } from '../../types'
 import './CalendarPage.css'
 
 type ViewType = 'month' | 'day'
@@ -38,6 +39,8 @@ export default function CalendarPage() {
   const [routines, setRoutines] = useState<Routine[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [movingItem, setMovingItem] = useState<{ type: 'task' | 'event'; id: string } | null>(null)
+  const [showAddPicker, setShowAddPicker] = useState(false)
+  const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([])
 
   // Current month string for transactions
   const currentMonthStr = format(currentDate, 'yyyy-MM')
@@ -54,12 +57,15 @@ export default function CalendarPage() {
     return unsub
   }, [currentMonthStr])
 
-  // Subscribe to routines for selected date
+  // Subscribe to routines and sleep for selected date
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd')
   useEffect(() => {
     const unsub = subscribeRoutinesByDate(selectedDateStr, setRoutines)
-    return () => unsub()
+    const unsubSleep = subscribeSleepForDate(selectedDateStr, setSleepRecords)
+    return () => { unsub(); unsubSleep() }
   }, [selectedDateStr])
+
+  const sleepInfo = calculateSleepDuration(sleepRecords, selectedDateStr)
 
   const dayEvents = events.filter((e) => {
     const start = e.startDate.toDate()
@@ -146,12 +152,29 @@ export default function CalendarPage() {
     return format(selectedDate, 'yyyy년 M월', { locale: ko })
   }
 
+  const [defaultStartTime, setDefaultStartTime] = useState<string | undefined>()
+
   const handleAddEvent = () => {
+    setDefaultStartTime(undefined)
+    setEditEvent(null)
+    setEventFormOpen(true)
+    setShowAddPicker(false)
+  }
+
+  const handleAddTask = () => {
+    setEditTask(null)
+    setTaskFormOpen(true)
+    setShowAddPicker(false)
+  }
+
+  const handleAddEventAtTime = (startTime: string) => {
+    setDefaultStartTime(startTime)
     setEditEvent(null)
     setEventFormOpen(true)
   }
 
   const handleEditEvent = (event: CalendarEvent) => {
+    setDefaultStartTime(undefined)
     setEditEvent(event)
     setEventFormOpen(true)
   }
@@ -226,7 +249,24 @@ export default function CalendarPage() {
   return (
     <div className={`page ${view === 'day' ? 'page-fixed' : ''}`}>
       <Header title="CALENDAR" right={
-        <button className="header-add-btn" onClick={handleAddEvent}>+</button>
+        <div className="cal-add-wrapper">
+          <button className="header-add-btn" onClick={() => setShowAddPicker(!showAddPicker)}>+</button>
+          {showAddPicker && (
+            <>
+              <div className="cal-add-overlay" onClick={() => setShowAddPicker(false)} />
+              <div className="cal-add-picker">
+                <button className="cal-add-option" onClick={handleAddEvent}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  일정 추가
+                </button>
+                <button className="cal-add-option" onClick={handleAddTask}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                  할 일 추가
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       } />
 
       {/* 이동 모드 배너 */}
@@ -347,8 +387,11 @@ export default function CalendarPage() {
               tasks={dayTasks}
               routines={routines}
               categories={categories}
+              sleepRecords={sleepRecords}
+              sleepInfo={sleepInfo}
               onEditEvent={handleEditEvent}
               onEditTask={handleEditTask}
+              onAddEventAtTime={handleAddEventAtTime}
             />
           </div>
         </div>
@@ -356,9 +399,10 @@ export default function CalendarPage() {
 
       <EventForm
         isOpen={eventFormOpen}
-        onClose={() => { setEventFormOpen(false); setEditEvent(null) }}
+        onClose={() => { setEventFormOpen(false); setEditEvent(null); setDefaultStartTime(undefined) }}
         editEvent={editEvent}
         defaultDate={selectedDate}
+        defaultStartTime={defaultStartTime}
       />
 
       <TaskForm

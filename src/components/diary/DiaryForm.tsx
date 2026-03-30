@@ -128,7 +128,7 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
   const dateStr = format(selectedDate, 'yyyy년 M월 d일 (EEEE)', { locale: ko })
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={editEntry ? '일기 수정' : '일기 쓰기'} fullScreen>
+    <BottomSheet isOpen={isOpen} onClose={uploading || saving ? () => {} : onClose} title={editEntry ? '일기 수정' : '일기 쓰기'} fullScreen>
       <div className="diary-form">
         {/* 날짜 표시 */}
         <div className="diary-form-date">{dateStr}</div>

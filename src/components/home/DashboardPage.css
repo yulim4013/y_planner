@@ -190,27 +190,58 @@
   border-radius: 8px;
 }
 
-.routine-order-btns {
+.routine-drag-handle {
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-}
-
-.routine-order-btn {
-  font-size: 8px;
+  cursor: grab;
   color: var(--color-text-tertiary);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 4px;
-  line-height: 1;
-  opacity: 0.6;
+  opacity: 0.5;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.routine-order-btn:active {
-  opacity: 1;
-  color: var(--color-text);
+.routine-drag-handle:active {
+  cursor: grabbing;
+  opacity: 0.8;
+}
+
+.routine-dragging {
+  position: relative;
+  background: var(--color-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  opacity: 0.9;
+}
+
+.routine-time-badge {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  background: var(--color-divider);
+  padding: 2px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.routine-time-clear {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 /* 물 마시기 루틴 - 인라인 바 */
@@ -395,6 +426,34 @@
   flex: 1;
   text-align: center;
   font-size: 13px;
+}
+
+/* 시간 입력 래퍼 - iOS에서 빈 time input 가시성 확보 */
+.routine-time-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.routine-time-wrapper .routine-time-input {
+  width: 100%;
+  min-height: 36px;
+  opacity: 1;
+}
+
+.routine-time-wrapper .routine-time-input:not(:valid):not(:focus) {
+  color: transparent;
+}
+
+.routine-time-placeholder {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
 }
 
 .routine-bottom-actions {

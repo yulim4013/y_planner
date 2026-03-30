@@ -1,3 +1,52 @@
+/* 추가 버튼 드롭다운 */
+.cal-add-wrapper {
+  position: relative;
+}
+
+.cal-add-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.cal-add-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 91;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex);
+  border-radius: 12px;
+  padding: 4px;
+  min-width: 140px;
+  animation: fade-in-down 0.15s ease-out;
+}
+
+.cal-add-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cal-add-option:active {
+  background: var(--color-divider);
+}
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* 이동 모드 배너 */
 .move-banner {
   display: flex;

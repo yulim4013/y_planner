@@ -14,6 +14,7 @@ export interface RoutineTemplate {
   startDate: string    // 'YYYY-MM-DD'
   endDate: string      // 'YYYY-MM-DD'
   targetMl?: number    // 물 마시기 목표 (ml)
+  time?: string        // 알림 시간 'HH:mm' (선택)
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -29,6 +30,7 @@ export interface Routine {
   checkedAt: Timestamp | null   // 체크한 실제 시간
   targetMl?: number    // 물 마시기 목표 (ml)
   currentMl?: number   // 물 마시기 현재 (ml)
+  time?: string        // 알림 시간 'HH:mm' (선택)
   createdAt: Timestamp
   updatedAt: Timestamp
 }

@@ -34,6 +34,7 @@ export async function addRoutineTemplate(data: {
   startDate: string
   endDate: string
   targetMl?: number
+  time?: string
 }) {
   const ref = getTemplatesRef()
   if (!ref) return null
@@ -46,6 +47,7 @@ export async function addRoutineTemplate(data: {
     startDate: data.startDate,
     endDate: data.endDate,
     targetMl: data.targetMl || null,
+    time: data.time || null,
     createdAt: now,
     updatedAt: now,
   })
@@ -110,6 +112,7 @@ export function subscribeRoutinesByDate(date: string, callback: (routines: Routi
             date,
             order: tmpl.order,
             checkedAt: null,
+            time: tmpl.time || null,
             createdAt: now,
             updatedAt: now,
           }
@@ -147,6 +150,7 @@ export async function addRoutine(data: {
   order: number
   targetMl?: number
   templateId?: string
+  time?: string
 }) {
   const ref = getRoutinesRef()
   if (!ref) return null
@@ -160,6 +164,7 @@ export async function addRoutine(data: {
     date: data.date,
     order: data.order,
     checkedAt: null,
+    time: data.time || null,
     createdAt: now,
     updatedAt: now,
   }

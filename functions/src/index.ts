@@ -50,7 +50,7 @@ export const recordSleep = functions
     }
 
     const [h, m] = time.split(':').map(Number)
-    const dt = new Date(date + 'T' + time + ':00')
+    const dt = new Date(date + 'T' + time + ':00+09:00') // KST
 
     await db.collection('users').doc(USER_UID).collection('sleepRecords').add({
       type,
@@ -59,6 +59,7 @@ export const recordSleep = functions
       hour: h,
       minute: m,
       timestamp: admin.firestore.Timestamp.fromDate(dt),
+      createdAt: admin.firestore.Timestamp.now(),
       source: 'shortcut',
     })
 

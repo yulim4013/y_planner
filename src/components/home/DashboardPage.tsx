@@ -9,6 +9,10 @@ import {
   toggleRoutineComplete, deleteRoutine, incrementWater, decrementWater,
   subscribeActiveTemplates, deleteRoutineTemplate, updateRoutineOrder,
 } from '../../services/routineService'
+import {
+  requestNotificationPermission, scheduleAllRoutineNotifications,
+  getNotificationPermission,
+} from '../../services/notificationService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
@@ -107,6 +111,7 @@ export default function DashboardPage() {
   const [waterGoal, setWaterGoal] = useState('2000')
   const [startDate, setStartDate] = useState(todayStr)
   const [endDate, setEndDate] = useState('2026-12-31')
+  const [routineTime, setRoutineTime] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const currentMonthStr = format(today, 'yyyy-MM')
@@ -121,6 +126,13 @@ export default function DashboardPage() {
     const unsubTxns = subscribeTransactionsByMonth(currentMonthStr, setTransactions)
     return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns() }
   }, [todayStr, currentMonthStr, routineDateStr])
+
+  // 루틴 알림 스케줄링
+  useEffect(() => {
+    if (routines.length > 0) {
+      scheduleAllRoutineNotifications(routines)
+    }
+  }, [routines])
 
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
@@ -175,6 +187,12 @@ export default function DashboardPage() {
     if (!routineTitle.trim()) return
     const isWater = selectedIconId === 'water'
     const targetMl = isWater ? parseInt(waterGoal) || 2000 : undefined
+    const timeValue = routineTime || undefined
+
+    // 시간 알림이 설정된 경우 알림 권한 요청
+    if (timeValue && getNotificationPermission() !== 'granted') {
+      await requestNotificationPermission()
+    }
 
     // 낙관적 UI 업데이트 - 즉시 화면에 반영
     const tempId = `temp-${Date.now()}`
@@ -188,6 +206,7 @@ export default function DashboardPage() {
       order: templates.length,
       checkedAt: null,
       ...(targetMl ? { targetMl, currentMl: 0 } : {}),
+      ...(timeValue ? { time: timeValue } : {}),
     } as Routine
     setRoutines((prev) => [...prev, newRoutine])
 
@@ -198,6 +217,7 @@ export default function DashboardPage() {
       startDate,
       endDate,
       targetMl,
+      time: timeValue,
     })
     if (tmplDoc && startDate <= routineDateStr && endDate >= routineDateStr) {
       await addRoutine({
@@ -207,6 +227,7 @@ export default function DashboardPage() {
         date: routineDateStr,
         order: templates.length,
         targetMl,
+        time: timeValue,
       })
     }
     setRoutineTitle('')
@@ -214,6 +235,7 @@ export default function DashboardPage() {
     setWaterGoal('2000')
     setStartDate(todayStr)
     setEndDate('2026-12-31')
+    setRoutineTime('')
     setShowRoutineForm(false)
   }
 
@@ -259,19 +281,75 @@ export default function DashboardPage() {
     await decrementWater(routineId, currentMl)
   }
 
-  const handleMoveRoutine = async (index: number, direction: 'up' | 'down') => {
-    const swapIndex = direction === 'up' ? index - 1 : index + 1
-    if (swapIndex < 0 || swapIndex >= routines.length) return
-    const newRoutines = [...routines]
-    const temp = newRoutines[index]
-    newRoutines[index] = newRoutines[swapIndex]
-    newRoutines[swapIndex] = temp
-    setRoutines(newRoutines)
-    await Promise.all([
-      updateRoutineOrder(newRoutines[index].id, index),
-      updateRoutineOrder(newRoutines[swapIndex].id, swapIndex),
-    ])
+  // ── 루틴 드래그 정렬 ──
+  const dragRoutineRef = useRef<{
+    startIdx: number
+    startY: number
+    itemH: number
+    listEl: HTMLElement
+    dy: number
+  } | null>(null)
+  const [dragRoutineIdx, setDragRoutineIdx] = useState<number | null>(null)
+  const [dragRoutineDy, setDragRoutineDy] = useState(0)
+  const routinesRef = useRef(routines)
+  routinesRef.current = routines
+
+  const handleRoutineDragStart = (idx: number, clientY: number, listEl: HTMLElement) => {
+    const items = listEl.querySelectorAll('.routine-item')
+    const itemH = items.length > 0 ? (items[0] as HTMLElement).offsetHeight : 44
+    dragRoutineRef.current = { startIdx: idx, startY: clientY, itemH, listEl, dy: 0 }
+    setDragRoutineIdx(idx)
+    setDragRoutineDy(0)
+    try { navigator.vibrate?.(15) } catch {}
   }
+
+  useEffect(() => {
+    if (dragRoutineIdx === null) return
+
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault()
+      if (!dragRoutineRef.current) return
+      const dy = e.touches[0].clientY - dragRoutineRef.current.startY
+      dragRoutineRef.current.dy = dy
+      setDragRoutineDy(dy)
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragRoutineRef.current) return
+      const dy = e.clientY - dragRoutineRef.current.startY
+      dragRoutineRef.current.dy = dy
+      setDragRoutineDy(dy)
+    }
+    const onEnd = async () => {
+      if (!dragRoutineRef.current) return
+      const { startIdx, itemH, dy } = dragRoutineRef.current
+      const currentRoutines = routinesRef.current
+      const offset = Math.round(dy / itemH)
+      const toIdx = Math.max(0, Math.min(currentRoutines.length - 1, startIdx + offset))
+
+      if (toIdx !== startIdx) {
+        const newRoutines = [...currentRoutines]
+        const [moved] = newRoutines.splice(startIdx, 1)
+        newRoutines.splice(toIdx, 0, moved)
+        setRoutines(newRoutines)
+        await Promise.all(newRoutines.map((r, i) => updateRoutineOrder(r.id, i)))
+      }
+
+      dragRoutineRef.current = null
+      setDragRoutineIdx(null)
+      setDragRoutineDy(0)
+    }
+
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onEnd)
+    return () => {
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onEnd)
+    }
+  }, [dragRoutineIdx])
 
   return (
     <div className="page">
@@ -333,8 +411,15 @@ export default function DashboardPage() {
           )}
 
           <div className="routine-list">
-            {routines.map((routine, idx) => (
-              <div key={routine.id} className="routine-item">
+            {routines.map((routine, idx) => {
+              const isDragging = dragRoutineIdx === idx
+              const dragOffset = isDragging ? dragRoutineDy : 0
+              return (
+              <div
+                key={routine.id}
+                className={`routine-item ${isDragging ? 'routine-dragging' : ''}`}
+                style={isDragging ? { transform: `translateY(${dragOffset}px)`, zIndex: 10 } : undefined}
+              >
                 {routine.iconId === 'water' && routine.targetMl ? (
                   /* 물 마시기 - 인라인 바 UI */
                   <div className="water-routine">
@@ -372,9 +457,20 @@ export default function DashboardPage() {
                           onClick={() => handleDecrementWater(routine.id, routine.currentMl || 0)}
                         >−</button>
                       )}
-                      <div className="routine-order-btns">
-                        {idx > 0 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'up')}>▲</button>}
-                        {idx < routines.length - 1 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'down')}>▼</button>}
+                      <div
+                        className="routine-drag-handle"
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          handleRoutineDragStart(idx, e.touches[0].clientY, e.currentTarget.closest('.routine-list') as HTMLElement)
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          handleRoutineDragStart(idx, e.clientY, (e.currentTarget as HTMLElement).closest('.routine-list') as HTMLElement)
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
+                        </svg>
                       </div>
                       <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                     </div>
@@ -399,15 +495,31 @@ export default function DashboardPage() {
                     <span className={`routine-title ${routine.isCompleted ? 'done-text' : ''}`}>
                       {routine.title}
                     </span>
-                    <div className="routine-order-btns">
-                      {idx > 0 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'up')}>▲</button>}
-                      {idx < routines.length - 1 && <button className="routine-order-btn" onClick={() => handleMoveRoutine(idx, 'down')}>▼</button>}
+                    {routine.time && (
+                      <span className="routine-time-badge">
+                        {formatTimeKorean(routine.time)}
+                      </span>
+                    )}
+                    <div
+                      className="routine-drag-handle"
+                      onTouchStart={(e) => {
+                        e.stopPropagation()
+                        handleRoutineDragStart(idx, e.touches[0].clientY, e.currentTarget.closest('.routine-list') as HTMLElement)
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleRoutineDragStart(idx, e.clientY, (e.currentTarget as HTMLElement).closest('.routine-list') as HTMLElement)
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
+                      </svg>
                     </div>
                     <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                   </>
                 )}
               </div>
-            ))}
+            )})}
           </div>
 
           {showRoutineForm ? (
@@ -451,6 +563,21 @@ export default function DashboardPage() {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
+              </div>
+              <div className="routine-date-row">
+                <label className="routine-date-label">알림</label>
+                <div className="routine-time-wrapper">
+                  <input
+                    className="routine-input routine-date-input routine-time-input"
+                    type="time"
+                    value={routineTime}
+                    onChange={(e) => setRoutineTime(e.target.value)}
+                  />
+                  {!routineTime && <span className="routine-time-placeholder">시간 선택</span>}
+                </div>
+                {routineTime && (
+                  <button className="routine-time-clear" onClick={() => setRoutineTime('')}>×</button>
+                )}
               </div>
               {selectedIconId === 'water' && (
                 <div className="routine-input-row water-goal-row">
@@ -496,6 +623,7 @@ export default function DashboardPage() {
                       <span className="routine-template-title">{tmpl.title}</span>
                       <span className="routine-template-dates">
                         {tmpl.startDate} ~ {tmpl.endDate}
+                        {tmpl.time && ` · ${tmpl.time}`}
                       </span>
                     </div>
                     <button

@@ -2,17 +2,26 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { toggleTaskComplete, deleteTask, updateTask, addTask } from '../../services/taskService'
 import { deleteEvent, updateEvent, addEvent } from '../../services/eventService'
 import { toggleRoutineComplete } from '../../services/routineService'
-import type { CalendarEvent, Task, Category, Routine } from '../../types'
+import type { CalendarEvent, Task, Category, Routine, SleepRecord } from '../../types'
 import './TimelineView.css'
+
+interface SleepInfo {
+  sleepTime: string | null
+  wakeTime: string | null
+  durationMin: number
+}
 
 interface TimelineViewProps {
   events: CalendarEvent[]
   tasks: Task[]
   routines?: Routine[]
   categories?: Category[]
+  sleepRecords?: SleepRecord[]
+  sleepInfo?: SleepInfo
   onEditEvent: (event: CalendarEvent) => void
   onEditTask: (task: Task) => void
   onMoveItem?: (type: 'task' | 'event', id: string) => void
+  onAddEventAtTime?: (startTime: string) => void
 }
 
 interface ActionBarState {
@@ -62,7 +71,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], onEditEvent, onEditTask }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepRecords = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -415,8 +424,65 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     else onEditTask(item as Task)
   }
 
+  const handleGridClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onAddEventAtTime) return
+    // Only handle clicks directly on the grid inner or hour rows
+    const target = e.target as HTMLElement
+    if (!target.classList.contains('tl-grid-inner') && !target.classList.contains('tl-hour-line') && !target.classList.contains('tl-hour-row')) return
+    const grid = gridRef.current
+    if (!grid) return
+    const rect = grid.getBoundingClientRect()
+    const y = e.clientY - rect.top + grid.scrollTop
+    const minutes = Math.floor((y / HOUR_HEIGHT) * 60 / 15) * 15
+    const clampedMin = Math.max(0, Math.min(23 * 60 + 45, minutes))
+    onAddEventAtTime(minutesToTime(clampedMin))
+  }, [onAddEventAtTime])
+
+  // 수면 블록 계산
+  const sleepBlocks: { top: number; height: number; label: string; detail: string }[] = []
+  if (sleepInfo && sleepInfo.durationMin > 0 && sleepRecords.length >= 2) {
+    const sleepRecord = [...sleepRecords].reverse().find((r) => r.type === 'sleep')
+    const wakeRecord = sleepRecords.find((r) => r.type === 'wake')
+    if (sleepRecord && wakeRecord) {
+      const sleepTs = sleepRecord.timestamp.toDate()
+      const wakeTs = wakeRecord.timestamp.toDate()
+      const sleepH = sleepTs.getHours()
+      const sleepM = sleepTs.getMinutes()
+      const wakeH = wakeTs.getHours()
+      const wakeM = wakeTs.getMinutes()
+
+      // 취침이 전날 밤인 경우 (예: 23:00~07:00)
+      if (sleepRecord.date !== wakeRecord.date) {
+        // 0시~기상시간 블록
+        const wakeMin = wakeH * 60 + wakeM
+        if (wakeMin > 0) {
+          const hours = Math.floor(sleepInfo.durationMin / 60)
+          const mins = sleepInfo.durationMin % 60
+          sleepBlocks.push({
+            top: 0,
+            height: (wakeMin / 60) * HOUR_HEIGHT,
+            label: `${hours}시간${mins > 0 ? ` ${mins}분` : ''}`,
+            detail: `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`,
+          })
+        }
+      } else {
+        // 같은 날 수면 (낮잠 등)
+        const sleepMin = sleepH * 60 + sleepM
+        const wakeMin = wakeH * 60 + wakeM
+        const hours = Math.floor(sleepInfo.durationMin / 60)
+        const mins = sleepInfo.durationMin % 60
+        sleepBlocks.push({
+          top: (sleepMin / 60) * HOUR_HEIGHT,
+          height: ((wakeMin - sleepMin) / 60) * HOUR_HEIGHT,
+          label: `${hours}시간${mins > 0 ? ` ${mins}분` : ''}`,
+          detail: `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`,
+        })
+      }
+    }
+  }
+
   const hours = Array.from({ length: 24 }, (_, i) => i)
-  const hasContent = events.length > 0 || tasks.length > 0 || routines.length > 0
+  const hasContent = events.length > 0 || tasks.length > 0 || routines.length > 0 || sleepBlocks.length > 0
 
   return (
     <div className="timeline">
@@ -474,7 +540,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
       {/* 타임라인 그리드 */}
       <div className="tl-grid" ref={gridRef}>
-        <div className="tl-grid-inner" style={{ height: 24 * HOUR_HEIGHT }}>
+        <div className="tl-grid-inner" style={{ height: 24 * HOUR_HEIGHT }} onClick={handleGridClick}>
           {hours.map((h) => (
             <div key={h} className="tl-hour-row" style={{ top: h * HOUR_HEIGHT }}>
               <span className="tl-hour-label">{getHourLabel(h)}</span>
@@ -546,7 +612,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 {...handlers}
               >
                 {/* Top resize handle */}
-                <div className="tl-resize-handle tl-resize-top" {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />
+                <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />
 
                 <div className="tl-event-header">
                   <div className="tl-event-header-top">
@@ -606,7 +672,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 )}
 
                 {/* Bottom resize handle */}
-                <div className="tl-resize-handle tl-resize-bottom" {...makeResizeHandlers(event.id, 'resize-bottom', startMin, endMin)} />
+                <div className="tl-resize-handle tl-resize-bottom" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-bottom', startMin, endMin)} />
               </div>
             )
           })}
@@ -648,6 +714,23 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               </div>
             )
           })}
+
+          {/* 수면 블록 */}
+          {sleepBlocks.map((block, i) => (
+            <div
+              key={`sleep-${i}`}
+              className="tl-sleep-block"
+              style={{ top: block.top, height: Math.max(block.height, 40) }}
+            >
+              <div className="tl-sleep-content">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                </svg>
+                <span className="tl-sleep-label">{block.label}</span>
+                <span className="tl-sleep-detail">{block.detail}</span>
+              </div>
+            </div>
+          ))}
 
           {/* 완료된 루틴 */}
           {completedRoutines.map((routine) => {

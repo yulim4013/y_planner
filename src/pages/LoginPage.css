@@ -5,56 +5,68 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
+  padding: var(--space-xl);
 }
 
 .login-bg {
   position: absolute;
   inset: 0;
-  background: var(--color-bg);
+  background: linear-gradient(
+    160deg,
+    var(--color-bg) 0%,
+    #f0eeea 30%,
+    #f5ebc0 60%,
+    var(--color-bg) 100%
+  );
 }
 
-.login-content {
+/* 플로팅 카드 */
+.login-card {
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 340px;
+  padding: var(--space-3xl) var(--space-2xl);
+  background: var(--color-bg);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--neu-convex), 0 8px 32px rgba(0, 0, 0, 0.06);
   text-align: center;
-  padding: var(--space-2xl);
-}
-
-.login-logo {
-  font-size: 64px;
-  margin-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-base);
 }
 
 .login-title {
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
   font-weight: 800;
   color: var(--color-text);
+  letter-spacing: -0.5px;
   margin-bottom: var(--space-md);
 }
 
-.login-subtitle {
-  font-size: var(--font-size-base);
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin-bottom: var(--space-3xl);
-}
-
+/* 로그인 버튼 */
 .login-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-2xl);
-  border-radius: var(--radius-full);
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 14px var(--space-xl);
+  border-radius: var(--radius-lg);
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text);
   background: var(--color-bg);
   box-shadow: var(--neu-convex);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-top: var(--space-sm);
 }
 
 .login-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
   box-shadow: var(--neu-concave);
 }
 
@@ -64,8 +76,13 @@
 
 /* ==================== PC 데스크톱 ==================== */
 @media (min-width: 768px) {
+  .login-card {
+    padding: var(--space-3xl) var(--space-3xl);
+    max-width: 380px;
+  }
+
   .login-btn:hover {
-    transform: scale(1.02);
-    box-shadow: var(--neu-convex);
+    transform: scale(1.01);
+    box-shadow: 4px 4px 10px #d4d4d4, -4px -4px 10px #ffffff;
   }
 }

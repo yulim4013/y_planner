@@ -277,6 +277,45 @@
 }
 
 /* 루틴 (타임라인 배치) */
+/* 수면 블록 */
+.tl-sleep-block {
+  position: absolute;
+  left: 54px;
+  right: 4px;
+  background: rgba(147, 130, 220, 0.1);
+  border-left: 3px solid #9382dc;
+  border-radius: 8px;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.tl-sleep-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  color: #7b6cb5;
+  flex-wrap: wrap;
+}
+
+.tl-sleep-content svg {
+  stroke: #9382dc;
+  flex-shrink: 0;
+}
+
+.tl-sleep-label {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: #7b6cb5;
+}
+
+.tl-sleep-detail {
+  font-size: 11px;
+  color: #9b8ec7;
+}
+
 .tl-routine-row {
   position: absolute;
   left: 66px;
@@ -389,19 +428,20 @@
   position: absolute;
   left: 0;
   right: 0;
-  height: 12px;
+  height: 24px;
   z-index: 5;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
 }
 
 .tl-resize-top {
-  top: -4px;
+  top: -8px;
   cursor: ns-resize;
   border-radius: 8px 8px 0 0;
 }
 
 .tl-resize-bottom {
-  bottom: -4px;
+  bottom: -8px;
   cursor: ns-resize;
   border-radius: 0 0 8px 8px;
 }
@@ -412,24 +452,30 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 24px;
-  height: 3px;
+  width: 28px;
+  height: 4px;
   border-radius: 2px;
-  background: transparent;
-  transition: background 0.15s;
+  background: rgba(0, 0, 0, 0.1);
+  transition: background 0.15s, width 0.15s;
 }
 
 .tl-resize-top::after {
-  top: 4px;
+  top: 8px;
 }
 
 .tl-resize-bottom::after {
-  bottom: 4px;
+  bottom: 8px;
+}
+
+/* 이벤트 블록에 터치/포커스 시 핸들 강조 */
+.tl-event-block:active .tl-resize-handle::after {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 /* 드래그 중일 때 핸들 강조 */
 .tl-dragging .tl-resize-handle::after {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.35);
+  width: 36px;
 }
 
 /* ==================== PC 데스크톱 ==================== */

@@ -11,6 +11,7 @@ interface EventFormProps {
   onClose: () => void
   editEvent?: CalendarEvent | null
   defaultDate?: Date
+  defaultStartTime?: string
 }
 
 function toDateInput(date: Date): string {
@@ -20,7 +21,7 @@ function toDateInput(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: EventFormProps) {
+export default function EventForm({ isOpen, onClose, editEvent, defaultDate, defaultStartTime }: EventFormProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -54,9 +55,18 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
     setDescription('')
     setStartDate(dateStr)
     setEndDate(dateStr)
-    setStartTime('')
-    setEndTime('')
-    setIsAllDay(false)
+    // 기본 시작시간이 있으면 설정 + 종료시간 자동 +1시간
+    if (defaultStartTime) {
+      setStartTime(defaultStartTime)
+      const [h, m] = defaultStartTime.split(':').map(Number)
+      const endH = Math.min(23, h + 1)
+      setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+      setIsAllDay(false)
+    } else {
+      setStartTime('')
+      setEndTime('')
+      setIsAllDay(false)
+    }
     setLocation('')
     setCategoryId(null)
   }

@@ -15,6 +15,32 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// 푸시 알림 메시지 수신 (클라이언트에서 postMessage로 전달)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(event.data.title, {
+      body: event.data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      requireInteraction: false,
+    })
+  }
+})
+
+// 알림 클릭 시 앱 열기
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      if (clients.length > 0) {
+        clients[0].focus()
+      } else {
+        self.clients.openWindow('/')
+      }
+    })
+  )
+})
+
 // Network-only 전략: 캐시를 아예 안 쓰고, 오프라인 시에만 폴백
 self.addEventListener('fetch', (event) => {
   const { request } = event
