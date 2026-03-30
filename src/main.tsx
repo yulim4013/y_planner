@@ -27,9 +27,24 @@ createRoot(document.getElementById('root')!).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/life-planner/sw.js').catch(() => {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/y_planner/sw.js')
+      // 새 버전 감지 시 자동 업데이트
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing
+        if (!newWorker) return
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+            // 새 버전이 활성화되면 자동 새로고침
+            window.location.reload()
+          }
+        })
+      })
+      // 페이지 열 때마다 업데이트 확인
+      setInterval(() => reg.update(), 60 * 1000) // 1분마다
+    } catch {
       // Service worker registration failed - OK in dev
-    })
+    }
   })
 }

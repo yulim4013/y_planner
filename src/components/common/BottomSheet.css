@@ -38,7 +38,8 @@
 }
 
 .bottom-sheet-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(var(--space-xl) + var(--safe-area-bottom) + var(--tab-bar-height));
+  padding-bottom: calc(var(--space-lg) + var(--safe-area-bottom));
 }

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { toggleTaskComplete, toggleSubItem } from '../../services/taskService'
+import { toggleTaskComplete, toggleSubItem, deleteTask } from '../../services/taskService'
+import { deleteEvent } from '../../services/eventService'
 import { PRIORITY_LABELS } from '../../utils/constants'
 import type { CalendarEvent, Task, Category } from '../../types'
 import './DailyView.css'
@@ -16,18 +17,49 @@ interface DailyViewProps {
   onMoveItem?: (type: 'task' | 'event', id: string) => void
 }
 
-// 롱프레스 핸들러 (훅이 아닌 일반 함수 - .map() 안에서 안전하게 사용 가능)
-function createLongPressHandlers(callback: () => void, ms = 500) {
+interface ContextMenuState {
+  type: 'event' | 'task'
+  id: string
+  x: number
+  y: number
+}
+
+function createLongPressHandlers(callback: (e: React.PointerEvent | React.TouchEvent) => void, ms = 600) {
   let timer: ReturnType<typeof setTimeout> | null = null
   let startX = 0
   let startY = 0
+  let triggered = false
 
   return {
+    onTouchStart: (e: React.TouchEvent) => {
+      triggered = false
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      timer = setTimeout(() => {
+        triggered = true
+        callback(e)
+        timer = null
+      }, ms)
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (timer) { clearTimeout(timer); timer = null }
+      if (triggered) { e.preventDefault() }
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (timer) { clearTimeout(timer); timer = null }
+      }
+    },
     onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType === 'touch') return // handled by touch events
+      triggered = false
       startX = e.clientX
       startY = e.clientY
       timer = setTimeout(() => {
-        callback()
+        triggered = true
+        callback(e)
         timer = null
       }, ms)
     },
@@ -38,7 +70,7 @@ function createLongPressHandlers(callback: () => void, ms = 500) {
       if (timer) { clearTimeout(timer); timer = null }
     },
     onPointerMove: (e: React.PointerEvent) => {
-      // 10px 이상 움직여야 취소 (모바일 터치 떨림 방지)
+      if (e.pointerType === 'touch') return
       const dx = e.clientX - startX
       const dy = e.clientY - startY
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
@@ -61,7 +93,20 @@ function formatTimeStr(time: string | null): string {
 export default function DailyView({ date, events, tasks, categories = [], onEditEvent, onEditTask, onMoveItem }: DailyViewProps) {
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
   const dateLabel = format(date, 'M월 d일 (EEEE)', { locale: ko })
-  const [longPressId, setLongPressId] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleClick = () => setContextMenu(null)
+    document.addEventListener('click', handleClick)
+    document.addEventListener('touchstart', handleClick)
+    return () => {
+      document.removeEventListener('click', handleClick)
+      document.removeEventListener('touchstart', handleClick)
+    }
+  }, [contextMenu])
 
   const sortedEvents = [...events].sort((a, b) => {
     if (a.isAllDay && !b.isAllDay) return -1
@@ -70,6 +115,37 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
     const bTime = b.startTime || ''
     return aTime.localeCompare(bTime)
   })
+
+  const handleLongPress = (type: 'event' | 'task', id: string, e: React.PointerEvent | React.TouchEvent) => {
+    let x: number, y: number
+    if ('touches' in e) {
+      x = e.touches[0]?.clientX ?? e.changedTouches[0]?.clientX ?? 0
+      y = e.touches[0]?.clientY ?? e.changedTouches[0]?.clientY ?? 0
+    } else {
+      x = e.clientX
+      y = e.clientY
+    }
+    // 화면 밖으로 나가지 않도록 보정
+    x = Math.min(x, window.innerWidth - 140)
+    y = Math.min(y, window.innerHeight - 100)
+    setContextMenu({ type, id, x, y })
+  }
+
+  const handleDelete = async () => {
+    if (!contextMenu) return
+    if (contextMenu.type === 'event') {
+      await deleteEvent(contextMenu.id)
+    } else {
+      await deleteTask(contextMenu.id)
+    }
+    setContextMenu(null)
+  }
+
+  const handleMove = () => {
+    if (!contextMenu || !onMoveItem) return
+    onMoveItem(contextMenu.type, contextMenu.id)
+    setContextMenu(null)
+  }
 
   const hasContent = events.length > 0 || tasks.length > 0
 
@@ -93,15 +169,12 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
           {sortedEvents.map((event) => {
             const eCat = getCat(event.categoryId)
             const isNoTitle = !event.title || event.title === '(제목 없음)'
-            const lp = onMoveItem ? createLongPressHandlers(() => {
-              setLongPressId(event.id)
-              onMoveItem('event', event.id)
-            }) : {}
+            const lp = createLongPressHandlers((e) => handleLongPress('event', event.id, e))
             return (
               <div
                 key={event.id}
-                className={`daily-event ${longPressId === event.id ? 'dragging' : ''}`}
-                onClick={() => onEditEvent(event)}
+                className={`daily-event ${contextMenu?.id === event.id ? 'dragging' : ''}`}
+                onClick={() => { if (!contextMenu) onEditEvent(event) }}
                 {...lp}
               >
                 <div className="event-color-bar" style={eCat ? { background: eCat.color } : {}} />
@@ -139,15 +212,12 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
               : task.dueTime
                 ? formatTimeStr(task.dueTime)
                 : null
-            const taskLp = onMoveItem ? createLongPressHandlers(() => {
-              setLongPressId(task.id)
-              onMoveItem('task', task.id)
-            }) : {}
+            const taskLp = createLongPressHandlers((e) => handleLongPress('task', task.id, e))
             return (
-              <div key={task.id} className={`daily-task ${task.isCompleted ? 'daily-task-done' : ''} ${longPressId === task.id ? 'dragging' : ''}`}>
+              <div key={task.id} className={`daily-task ${task.isCompleted ? 'daily-task-done' : ''} ${contextMenu?.id === task.id ? 'dragging' : ''}`}>
                 <div
                   className="daily-task-header"
-                  onClick={() => onEditTask(task)}
+                  onClick={() => { if (!contextMenu) onEditTask(task) }}
                   {...taskLp}
                 >
                   <button
@@ -201,6 +271,38 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
 
       {!hasContent && (
         <p className="daily-empty">이 날의 일정과 할 일이 없습니다</p>
+      )}
+
+      {/* 꾹 눌러서 나오는 컨텍스트 메뉴 */}
+      {contextMenu && (
+        <div
+          ref={menuRef}
+          className="daily-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          <button className="ctx-menu-item ctx-delete" onClick={handleDelete}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+            삭제
+          </button>
+          {onMoveItem && (
+            <button className="ctx-menu-item" onClick={handleMove}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="17" rx="3" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <path d="M12 13l3 3-3 3" />
+                <line x1="8" y1="16" x2="15" y2="16" />
+              </svg>
+              날짜 이동
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

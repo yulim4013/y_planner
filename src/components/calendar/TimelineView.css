@@ -64,9 +64,6 @@
 /* 타임라인 그리드 */
 .tl-grid {
   position: relative;
-  overflow-y: auto;
-  max-height: calc(100vh - 280px);
-  -webkit-overflow-scrolling: touch;
 }
 
 .tl-grid-inner {
@@ -270,4 +267,47 @@
   color: var(--color-text-tertiary);
   font-size: 14px;
   padding: 40px 0;
+}
+
+/* 컨텍스트 메뉴 (꾹 눌러서 삭제/수정) */
+.tl-context-menu {
+  position: fixed;
+  z-index: 300;
+  background: var(--color-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  overflow: hidden;
+  min-width: 120px;
+  animation: tl-ctx-pop 0.15s ease-out;
+}
+
+@keyframes tl-ctx-pop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.tl-context-menu .ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tl-context-menu .ctx-menu-item:active {
+  background: var(--color-divider);
+}
+
+.tl-context-menu .ctx-menu-item + .ctx-menu-item {
+  border-top: 1px solid var(--color-divider);
+}
+
+.tl-context-menu .ctx-menu-item.ctx-delete {
+  color: #FF6B6B;
 }

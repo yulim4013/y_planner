@@ -196,6 +196,26 @@
 .ws-dot-event { background: #64B5F6; }
 .ws-dot-task { background: #FF8A80; }
 
+/* Day view flex layout - 헤더 고정, 타임라인만 스크롤 */
+.day-view-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.day-view-header-pinned {
+  flex-shrink: 0;
+}
+
+.day-view-timeline-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  /* 하단 탭바에 가려지지 않도록 패딩 */
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--space-lg));
+}
+
 .day-view-date-label {
   font-size: 14px;
   font-weight: 600;

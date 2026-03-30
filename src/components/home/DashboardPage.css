@@ -170,13 +170,24 @@
 .routine-delete {
   color: var(--color-text-tertiary);
   font-size: 18px;
-  padding: 0 4px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.6;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .routine-delete:active {
   opacity: 1;
+  background: rgba(0,0,0,0.05);
+  border-radius: 8px;
 }
 
 /* 물 마시기 루틴 - 인라인 바 */

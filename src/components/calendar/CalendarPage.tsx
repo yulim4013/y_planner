@@ -236,52 +236,58 @@ export default function CalendarPage() {
       )}
 
       {view === 'day' && (
-        <>
-          {/* iPhone-style week strip */}
-          <div className="week-strip">
-            <div className="week-strip-header">
-              {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                <div key={d} className={`ws-weekday ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>
-              ))}
-            </div>
-            <div className="week-strip-days">
-              {weekDays.map((day) => {
-                const selected = isSameDay(day, selectedDate)
-                const today = isToday(day)
-                const dayOfWeek = day.getDay()
-                const dots = hasDotForDay(day)
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={`ws-day ${selected ? 'ws-selected' : ''} ${today ? 'ws-today' : ''}`}
-                    onClick={() => setSelectedDate(day)}
-                  >
-                    <span className={`ws-num ${dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : ''}`}>
-                      {format(day, 'd')}
-                    </span>
-                    <div className="ws-dots">
-                      {dots.hasEvent && <span className="ws-dot ws-dot-event" />}
-                      {dots.hasTask && <span className="ws-dot ws-dot-task" />}
+        <div className="day-view-layout">
+          {/* 고정 헤더 영역 */}
+          <div className="day-view-header-pinned">
+            {/* iPhone-style week strip */}
+            <div className="week-strip">
+              <div className="week-strip-header">
+                {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                  <div key={d} className={`ws-weekday ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>
+                ))}
+              </div>
+              <div className="week-strip-days">
+                {weekDays.map((day) => {
+                  const selected = isSameDay(day, selectedDate)
+                  const today = isToday(day)
+                  const dayOfWeek = day.getDay()
+                  const dots = hasDotForDay(day)
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={`ws-day ${selected ? 'ws-selected' : ''} ${today ? 'ws-today' : ''}`}
+                      onClick={() => setSelectedDate(day)}
+                    >
+                      <span className={`ws-num ${dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : ''}`}>
+                        {format(day, 'd')}
+                      </span>
+                      <div className="ws-dots">
+                        {dots.hasEvent && <span className="ws-dot ws-dot-event" />}
+                        {dots.hasTask && <span className="ws-dot ws-dot-task" />}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="day-view-date-label">
+              {format(selectedDate, 'yyyy년 M월 d일 EEEE', { locale: ko })}
             </div>
           </div>
 
-          <div className="day-view-date-label">
-            {format(selectedDate, 'yyyy년 M월 d일 EEEE', { locale: ko })}
+          {/* 타임라인 - 스크롤 영역 */}
+          <div className="day-view-timeline-scroll">
+            <TimelineView
+              events={dayEvents}
+              tasks={dayTasks}
+              routines={routines}
+              categories={categories}
+              onEditEvent={handleEditEvent}
+              onEditTask={handleEditTask}
+            />
           </div>
-
-          <TimelineView
-            events={dayEvents}
-            tasks={dayTasks}
-            routines={routines}
-            categories={categories}
-            onEditEvent={handleEditEvent}
-            onEditTask={handleEditTask}
-          />
-        </>
+        </div>
       )}
 
       <EventForm

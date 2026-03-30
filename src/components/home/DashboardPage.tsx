@@ -75,6 +75,17 @@ export default function DashboardPage() {
   const todayStr = format(today, 'yyyy-MM-dd')
   const openAddSheet = useUIStore((s) => s.openAddSheet)
 
+  // 루틴은 매일 오전 6시 기준으로 리셋 (6시 이전이면 전날 루틴 표시)
+  const routineDateStr = (() => {
+    const now = new Date()
+    if (now.getHours() < 6) {
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      return format(yesterday, 'yyyy-MM-dd')
+    }
+    return todayStr
+  })()
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [routines, setRoutines] = useState<Routine[]>([])
@@ -98,13 +109,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const unsubTasks = subscribeTasks(setTasks)
     const unsubEvents = subscribeEvents(setEvents)
-    const unsubRoutines = subscribeRoutinesByDate(todayStr, setRoutines)
+    const unsubRoutines = subscribeRoutinesByDate(routineDateStr, setRoutines)
     const unsubTemplates = subscribeActiveTemplates(setTemplates)
     const unsubSleep = subscribeSleepForDate(todayStr, setSleepRecords)
     const unsubCats = subscribeCategories(setCategories)
     const unsubTxns = subscribeTransactionsByMonth(currentMonthStr, setTransactions)
     return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns() }
-  }, [todayStr, currentMonthStr])
+  }, [todayStr, currentMonthStr, routineDateStr])
 
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
@@ -167,12 +178,12 @@ export default function DashboardPage() {
       targetMl,
     })
     // 오늘이 범위 안이면 루틴 인스턴스도 즉시 생성
-    if (tmplDoc && startDate <= todayStr && endDate >= todayStr) {
+    if (tmplDoc && startDate <= routineDateStr && endDate >= routineDateStr) {
       await addRoutine({
         templateId: tmplDoc.id,
         iconId: selectedIconId,
         title: routineTitle.trim(),
-        date: todayStr,
+        date: routineDateStr,
         order: templates.length,
         targetMl,
       })
