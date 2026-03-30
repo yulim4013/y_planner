@@ -283,6 +283,40 @@
 }
 
 /* 루틴 (타임라인 배치) */
+/* 꾹 누르기 인디케이터 */
+.tl-lp-indicator {
+  position: absolute;
+  left: 54px;
+  right: 4px;
+  z-index: 20;
+  pointer-events: none;
+  animation: tl-lp-pulse 0.3s ease-out;
+}
+
+.tl-lp-line {
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+  opacity: 0.8;
+}
+
+.tl-lp-time {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-primary);
+  margin-bottom: 2px;
+}
+
+@keyframes tl-lp-pulse {
+  0% { opacity: 0; transform: scaleX(0.3); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+
 /* 수면 블록 */
 .tl-sleep-block {
   position: absolute;

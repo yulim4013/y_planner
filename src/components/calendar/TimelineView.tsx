@@ -374,8 +374,10 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // Auto-scroll
+  // Auto-scroll: 최초 마운트 시에만 실행
+  const initialScrollDone = useRef(false)
   useEffect(() => {
+    if (initialScrollDone.current) return
     const scrollContainer = gridRef.current?.closest('.day-view-timeline-scroll')
     if (!scrollContainer) return
     let scrollHour = new Date().getHours() - 1
@@ -383,7 +385,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       scrollHour = Math.floor(timeToMinutes(timedEvents[0].startTime!) / 60) - 1
     }
     scrollContainer.scrollTop = Math.max(0, scrollHour * HOUR_HEIGHT)
-  }, [events])
+    if (events.length > 0 || tasks.length > 0) initialScrollDone.current = true
+  }, [events, tasks])
 
   // Action bar handlers
   const handleEdit = () => {
@@ -439,13 +442,19 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActionBar(null)
   }
 
-  // Click guard: prevent click after long-press / drag
+  // Click guard: prevent click after long-press / drag / activation
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
     if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
     if (actionBar || draggedId) return
-    // 다른 곳 클릭 시 활성 이벤트 해제
-    if (activeEventId && (type !== 'event' || (item as CalendarEvent).id !== activeEventId)) {
+    // 활성 이벤트 클릭 시 편집 대신 비활성화
+    if (type === 'event' && activeEventId === (item as CalendarEvent).id) {
       setActiveEventId(null)
+      return
+    }
+    // 다른 곳 클릭 시 활성 이벤트 해제
+    if (activeEventId) {
+      setActiveEventId(null)
+      return
     }
     if (type === 'event') onEditEvent(item as CalendarEvent)
     else onEditTask(item as Task)
@@ -454,6 +463,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   // 그리드 빈 칸: 꾹 누르기(touch) / 더블클릭(mouse)으로 일정 추가
   const gridLpRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gridTouchStartRef = useRef({ x: 0, y: 0 })
+  const [lpIndicator, setLpIndicator] = useState<{ top: number; time: string } | null>(null)
 
   const getTimeFromY = useCallback((clientY: number) => {
     const grid = gridRef.current
@@ -472,16 +482,28 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     if (!isGridTarget(e.target as HTMLElement)) return
     const touch = e.touches[0]
     gridTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    // 프리뷰 인디케이터 표시 (200ms 후)
+    const previewTimer = setTimeout(() => {
+      const min = getTimeFromY(touch.clientY)
+      if (min !== null) {
+        setLpIndicator({ top: (min / 60) * HOUR_HEIGHT, time: formatTimeKorean(minutesToTime(min)) })
+      }
+    }, 200)
     gridLpRef.current = setTimeout(() => {
       gridLpRef.current = null
-      // 활성 이벤트 해제
+      clearTimeout(previewTimer)
       setActiveEventId(null)
+      setLpIndicator(null)
       const min = getTimeFromY(touch.clientY)
       if (min !== null) {
         try { navigator.vibrate?.(25) } catch {}
         onAddEventAtTime(minutesToTime(min))
       }
     }, 500)
+    // 취소 시 프리뷰도 지우기
+    const origCleanup = gridLpRef.current
+    gridLpRef.current = origCleanup
+    ;(gridLpRef as any)._previewTimer = previewTimer
   }, [onAddEventAtTime, getTimeFromY])
 
   const handleGridTouchMove = useCallback((e: React.TouchEvent) => {
@@ -490,13 +512,20 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       const dy = e.touches[0].clientY - gridTouchStartRef.current.y
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
         clearTimeout(gridLpRef.current)
+        clearTimeout((gridLpRef as any)._previewTimer)
         gridLpRef.current = null
+        setLpIndicator(null)
       }
     }
   }, [])
 
   const handleGridTouchEnd = useCallback(() => {
-    if (gridLpRef.current) { clearTimeout(gridLpRef.current); gridLpRef.current = null }
+    if (gridLpRef.current) {
+      clearTimeout(gridLpRef.current)
+      clearTimeout((gridLpRef as any)._previewTimer)
+      gridLpRef.current = null
+    }
+    setLpIndicator(null)
   }, [])
 
   const handleGridDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -508,7 +537,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   }, [onAddEventAtTime, getTimeFromY])
 
   const handleGridClick = useCallback(() => {
-    // 그리드 빈 칸 싱글 클릭 → 활성 이벤트 해제만
     setActiveEventId(null)
   }, [])
 
@@ -761,42 +789,62 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             )
           })}
 
-          {/* 그룹 밖 태스크 */}
-          {ungroupedTasks.map((task) => {
-            const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
-            const min = timeToMinutes(displayTime)
-            const top = (min / 60) * HOUR_HEIGHT
-            const cat = getCat(task.categoryId)
-            const isDragging = draggedId === task.id
-            const handlers = makeItemHandlers('task', task.id, min)
+          {/* 그룹 밖 태스크 (겹치면 나란히 배치) */}
+          {(() => {
+            // 같은 시간대 태스크 그룹핑
+            const tasksByTime = new Map<number, typeof ungroupedTasks>()
+            ungroupedTasks.forEach((task) => {
+              const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
+              const min = timeToMinutes(displayTime)
+              const group = tasksByTime.get(min) || []
+              group.push(task)
+              tasksByTime.set(min, group)
+            })
 
-            return (
-              <div
-                key={task.id}
-                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                style={{
-                  top,
-                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
-                }}
-                onClick={() => handleItemClick('task', task)}
-                {...handlers}
-              >
-                <button
-                  className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
-                  style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
-                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+            return ungroupedTasks.map((task) => {
+              const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
+              const min = timeToMinutes(displayTime)
+              const top = (min / 60) * HOUR_HEIGHT
+              const cat = getCat(task.categoryId)
+              const isDragging = draggedId === task.id
+              const handlers = makeItemHandlers('task', task.id, min)
+
+              // 같은 시간 태스크 중 인덱스 계산
+              const sameTimeTasks = tasksByTime.get(min) || [task]
+              const colIndex = sameTimeTasks.indexOf(task)
+              const colCount = sameTimeTasks.length
+              const colWidth = colCount > 1 ? `calc((100% - 74px) / ${colCount})` : undefined
+              const colLeft = colCount > 1 ? `calc(66px + (100% - 74px) * ${colIndex} / ${colCount})` : undefined
+
+              return (
+                <div
+                  key={task.id}
+                  className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                  style={{
+                    top,
+                    ...(colCount > 1 ? { left: colLeft, width: colWidth, right: 'auto' } : {}),
+                    ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                  }}
+                  onClick={() => handleItemClick('task', task)}
+                  {...handlers}
                 >
-                  {task.isCompleted && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-                <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-                {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
-              </div>
-            )
-          })}
+                  <button
+                    className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                    style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
+                    onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                  >
+                    {task.isCompleted && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
+                  {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
+                </div>
+              )
+            })
+          })()}
 
           {/* 수면 블록 */}
           {sleepBlocks.map((block, i) => (
@@ -814,6 +862,14 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               </div>
             </div>
           ))}
+
+          {/* 꾹 누르기 위치 인디케이터 */}
+          {lpIndicator && (
+            <div className="tl-lp-indicator" style={{ top: lpIndicator.top }}>
+              <span className="tl-lp-time">{lpIndicator.time}</span>
+              <div className="tl-lp-line" />
+            </div>
+          )}
 
           {/* 완료된 루틴 */}
           {completedRoutines.map((routine) => {
