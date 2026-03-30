@@ -12,6 +12,7 @@ interface TimelineViewProps {
   categories?: Category[]
   onEditEvent: (event: CalendarEvent) => void
   onEditTask: (task: Task) => void
+  onMoveItem?: (type: 'task' | 'event', id: string) => void
 }
 
 interface ContextMenuState {
@@ -109,7 +110,7 @@ function createLongPressHandlers(callback: (e: React.PointerEvent | React.TouchE
   }
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], onEditEvent, onEditTask }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], onEditEvent, onEditTask, onMoveItem }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -435,23 +436,22 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             </svg>
             삭제
           </button>
-          <button className="ctx-menu-item" onClick={() => {
-            if (contextMenu) {
-              const item = contextMenu.type === 'event'
-                ? events.find((e) => e.id === contextMenu.id)
-                : tasks.find((t) => t.id === contextMenu.id)
-              if (item) {
-                if (contextMenu.type === 'event') onEditEvent(item as CalendarEvent)
-                else onEditTask(item as Task)
+          {onMoveItem && (
+            <button className="ctx-menu-item" onClick={() => {
+              if (contextMenu && onMoveItem) {
+                onMoveItem(contextMenu.type, contextMenu.id)
               }
-            }
-            setContextMenu(null)
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </svg>
-            수정
-          </button>
+              setContextMenu(null)
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="17" rx="3" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <path d="M12 13l3 3-3 3" />
+                <line x1="8" y1="16" x2="15" y2="16" />
+              </svg>
+              날짜 이동
+            </button>
+          )}
         </div>
       )}
     </div>

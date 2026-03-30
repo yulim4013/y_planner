@@ -10,7 +10,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  max-height: 90dvh;
+  max-height: 85vh;
+  max-height: 85dvh;
   z-index: 201;
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   background: var(--color-bg) !important;
@@ -41,5 +42,6 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--space-lg) + var(--safe-area-bottom));
 }

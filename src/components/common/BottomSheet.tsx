@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './BottomSheet.css'
 
@@ -15,12 +15,6 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
-      // 열릴 때 content 맨 위로 스크롤
-      requestAnimationFrame(() => {
-        if (contentRef.current) {
-          contentRef.current.scrollTop = 0
-        }
-      })
     } else {
       document.body.style.overflow = ''
     }
@@ -28,6 +22,13 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
       document.body.style.overflow = ''
     }
   }, [isOpen])
+
+  // 애니메이션 완료 후 스크롤 맨 위로
+  const handleAnimationComplete = useCallback(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0
+    }
+  }, [])
 
   return (
     <AnimatePresence>
@@ -47,6 +48,7 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            onAnimationComplete={handleAnimationComplete}
           >
             <div className="bottom-sheet-handle" />
             {title && <h2 className="bottom-sheet-title">{title}</h2>}

@@ -279,34 +279,37 @@
   position: fixed;
   z-index: 300;
   background: var(--color-bg);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
   overflow: hidden;
-  min-width: 120px;
+  min-width: 140px;
   animation: tl-ctx-pop 0.15s ease-out;
 }
 
 @keyframes tl-ctx-pop {
-  from { transform: scale(0.9); opacity: 0; }
+  from { transform: scale(0.85); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 
 .tl-context-menu .ctx-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: none;
   background: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--color-text);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, transform 0.1s;
 }
 
 .tl-context-menu .ctx-menu-item:active {
-  background: var(--color-divider);
+  background: rgba(0,0,0,0.08);
+  transform: scale(0.96);
 }
 
 .tl-context-menu .ctx-menu-item + .ctx-menu-item {

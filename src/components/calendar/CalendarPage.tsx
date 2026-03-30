@@ -285,6 +285,7 @@ export default function CalendarPage() {
               categories={categories}
               onEditEvent={handleEditEvent}
               onEditTask={handleEditTask}
+              onMoveItem={handleMoveItem}
             />
           </div>
         </div>
