@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { toggleTaskComplete, deleteTask } from '../../services/taskService'
-import { deleteEvent } from '../../services/eventService'
+import { toggleTaskComplete, deleteTask, updateTask } from '../../services/taskService'
+import { deleteEvent, updateEvent } from '../../services/eventService'
 import { toggleRoutineComplete } from '../../services/routineService'
 import type { CalendarEvent, Task, Category, Routine } from '../../types'
 import './TimelineView.css'
@@ -45,6 +45,12 @@ function timeToMinutes(time: string): number {
   return h * 60 + (m || 0)
 }
 
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 function formatTimeKorean(time: string): string {
   const [h, m] = time.split(':').map(Number)
   const suffix = m ? `:${String(m).padStart(2, '0')}` : ''
@@ -54,87 +60,171 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-function createLongPressHandlers(onLongPress: (rect: DOMRect) => void, ms = 500) {
-  let timer: ReturnType<typeof setTimeout> | null = null
-  let startX = 0
-  let startY = 0
-  let triggered = false
-  let capturedTarget: HTMLElement | null = null
-
-  const clear = () => { if (timer) { clearTimeout(timer); timer = null } }
-
-  return {
-    onTouchStart: (e: React.TouchEvent) => {
-      triggered = false
-      capturedTarget = e.currentTarget as HTMLElement
-      startX = e.touches[0].clientX
-      startY = e.touches[0].clientY
-      timer = setTimeout(() => {
-        triggered = true
-        if (capturedTarget) {
-          onLongPress(capturedTarget.getBoundingClientRect())
-          try { navigator.vibrate?.(20) } catch {}
-        }
-        timer = null
-      }, ms)
-    },
-    onTouchEnd: (e: React.TouchEvent) => { clear(); if (triggered) e.preventDefault() },
-    onTouchMove: (e: React.TouchEvent) => {
-      const dx = e.touches[0].clientX - startX
-      const dy = e.touches[0].clientY - startY
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear()
-    },
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType === 'touch') return
-      triggered = false
-      capturedTarget = e.currentTarget as HTMLElement
-      startX = e.clientX
-      startY = e.clientY
-      timer = setTimeout(() => {
-        triggered = true
-        if (capturedTarget) onLongPress(capturedTarget.getBoundingClientRect())
-        timer = null
-      }, ms)
-    },
-    onPointerUp: clear,
-    onPointerLeave: clear,
-    onPointerMove: (e: React.PointerEvent) => {
-      if (e.pointerType === 'touch') return
-      const dx = e.clientX - startX
-      const dy = e.clientY - startY
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear()
-    },
-  }
-}
-
-export default function TimelineView({ events, tasks, routines = [], categories = [], onEditEvent, onEditTask, onMoveItem }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], onEditEvent, onEditTask }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
-  const [actionBar, setActionBar] = useState<ActionBarState | null>(null)
 
-  // 외부 클릭 시 닫기
+  // Refs for current data (accessible in event handlers)
+  const eventsRef = useRef(events)
+  eventsRef.current = events
+
+  // Action bar
+  const [actionBar, setActionBar] = useState<ActionBarState | null>(null)
   const closeActionBar = useCallback(() => setActionBar(null), [])
 
+  // Drag state
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragDeltaY, setDragDeltaY] = useState(0)
+  const [dragTimeLabel, setDragTimeLabel] = useState('')
+  const dragRef = useRef<{
+    type: 'event' | 'task'
+    id: string
+    startY: number
+    startScroll: number
+    originalMin: number
+    element: HTMLElement
+    docMoveHandler: ((e: TouchEvent) => void) | null
+    docEndHandler: ((e: TouchEvent) => void) | null
+  } | null>(null)
+  const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lpTriggeredRef = useRef(false)
+  const touchStartPosRef = useRef({ x: 0, y: 0 })
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (lpTimerRef.current) clearTimeout(lpTimerRef.current)
+      if (dragRef.current?.docMoveHandler) {
+        document.removeEventListener('touchmove', dragRef.current.docMoveHandler)
+      }
+      if (dragRef.current?.docEndHandler) {
+        document.removeEventListener('touchend', dragRef.current.docEndHandler)
+      }
+    }
+  }, [])
+
+  const startDragMode = useCallback((type: 'event' | 'task', id: string, element: HTMLElement, originalMin: number, touchY: number) => {
+    const scrollContainer = gridRef.current?.closest('.day-view-timeline-scroll')
+    const startScroll = scrollContainer?.scrollTop || 0
+
+    const info = { type, id, startY: touchY, startScroll, originalMin, element, docMoveHandler: null as any, docEndHandler: null as any }
+
+    const handleDocMove = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const dy = touch.clientY - info.startY
+      const scroll = (gridRef.current?.closest('.day-view-timeline-scroll')?.scrollTop || 0) - info.startScroll
+      const totalDy = dy + scroll
+
+      setDragDeltaY(totalDy)
+
+      const deltaMins = Math.round((totalDy / HOUR_HEIGHT) * 60 / 15) * 15
+      const newMin = Math.max(0, Math.min(23 * 60 + 45, info.originalMin + deltaMins))
+      setDragTimeLabel(formatTimeKorean(minutesToTime(newMin)))
+    }
+
+    const handleDocEnd = (e: TouchEvent) => {
+      const touch = e.changedTouches[0]
+      const dy = touch.clientY - info.startY
+      const scroll = (gridRef.current?.closest('.day-view-timeline-scroll')?.scrollTop || 0) - info.startScroll
+      const totalDy = dy + scroll
+      const deltaMins = Math.round((totalDy / HOUR_HEIGHT) * 60 / 15) * 15
+
+      if (Math.abs(deltaMins) >= 15) {
+        // Dragged enough → update time
+        const newMin = Math.max(0, Math.min(23 * 60 + 45, info.originalMin + deltaMins))
+        const newTime = minutesToTime(newMin)
+
+        if (info.type === 'event') {
+          const ev = eventsRef.current.find((e) => e.id === info.id)
+          if (ev?.startTime) {
+            const duration = ev.endTime ? timeToMinutes(ev.endTime) - timeToMinutes(ev.startTime) : 60
+            updateEvent(info.id, {
+              startTime: newTime,
+              endTime: minutesToTime(Math.min(23 * 60 + 59, newMin + duration)),
+            })
+          }
+        } else {
+          updateTask(info.id, { dueTime: newTime })
+        }
+      } else {
+        // No drag → show action bar
+        const rect = info.element.getBoundingClientRect()
+        const bw = 160
+        let bt = rect.bottom + 8
+        let bl = rect.left + rect.width / 2
+        if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
+        bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
+        setActionBar({ type: info.type, id: info.id, barTop: bt, barLeft: bl })
+      }
+
+      // Cleanup
+      document.removeEventListener('touchmove', handleDocMove)
+      document.removeEventListener('touchend', handleDocEnd)
+      dragRef.current = null
+      setDraggedId(null)
+      setDragDeltaY(0)
+      setDragTimeLabel('')
+    }
+
+    info.docMoveHandler = handleDocMove
+    info.docEndHandler = handleDocEnd
+    dragRef.current = info
+
+    document.addEventListener('touchmove', handleDocMove, { passive: false })
+    document.addEventListener('touchend', handleDocEnd)
+
+    setDraggedId(id)
+    setDragDeltaY(0)
+    try { navigator.vibrate?.(25) } catch {}
+  }, [])
+
+  // Item touch handlers
+  const makeItemHandlers = (type: 'event' | 'task', id: string, originalMin: number) => ({
+    onTouchStart: (e: React.TouchEvent) => {
+      if (actionBar) { setActionBar(null); return }
+      lpTriggeredRef.current = false
+      const el = e.currentTarget as HTMLElement
+      const touch = e.touches[0]
+      touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+
+      lpTimerRef.current = setTimeout(() => {
+        lpTriggeredRef.current = true
+        startDragMode(type, id, el, originalMin, touch.clientY)
+        lpTimerRef.current = null
+      }, 500)
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      if (lpTimerRef.current) {
+        const dx = e.touches[0].clientX - touchStartPosRef.current.x
+        const dy = e.touches[0].clientY - touchStartPosRef.current.y
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          clearTimeout(lpTimerRef.current)
+          lpTimerRef.current = null
+        }
+      }
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+      if (lpTriggeredRef.current) e.preventDefault()
+    },
+  })
+
+  // Build event groups
   const allDayEvents = events.filter((e) => e.isAllDay)
   const timedEvents = events.filter((e) => !e.isAllDay && e.startTime)
     .sort((a, b) => timeToMinutes(a.startTime!) - timeToMinutes(b.startTime!))
-
   const completedRoutines = routines.filter((r) => r.isCompleted && r.checkedAt)
 
   const buildEventGroups = () => {
     const groupedTaskIds = new Set<string>()
-
     const groups = timedEvents.map((event) => {
       const eventCat = getCat(event.categoryId)
       const linkedTaskCatIds = new Set(
-        categories
-          .filter((c) => (c.type === 'task' || c.type === 'all') && c.eventCategoryId === event.categoryId)
-          .map((c) => c.id)
+        categories.filter((c) => (c.type === 'task' || c.type === 'all') && c.eventCategoryId === event.categoryId).map((c) => c.id)
       )
-
       const startMin = timeToMinutes(event.startTime!)
       const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60
-
       const matchingTasks = tasks.filter((t) => {
         if (!t.categoryId || !linkedTaskCatIds.has(t.categoryId)) return false
         if (groupedTaskIds.has(t.id)) return false
@@ -147,22 +237,17 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         const bTime = b.isCompleted && b.completedTime ? b.completedTime : b.dueTime || '99:99'
         return timeToMinutes(aTime) - timeToMinutes(bTime)
       })
-
       matchingTasks.forEach((t) => groupedTaskIds.add(t.id))
       return { event, eventCat, tasks: matchingTasks }
     })
-
-    const ungrouped = tasks.filter((t) =>
-      (t.dueTime || (t.isCompleted && t.completedTime)) && !groupedTaskIds.has(t.id)
-    )
+    const ungrouped = tasks.filter((t) => (t.dueTime || (t.isCompleted && t.completedTime)) && !groupedTaskIds.has(t.id))
     const untimedTasks = tasks.filter((t) => !t.dueTime && !(t.isCompleted && t.completedTime))
-
     return { groups, ungrouped, untimedTasks }
   }
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 스크롤 위치
+  // Scroll position
   useEffect(() => {
     const scrollContainer = gridRef.current?.closest('.day-view-timeline-scroll')
     if (!scrollContainer) return
@@ -173,47 +258,23 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     scrollContainer.scrollTop = Math.max(0, scrollHour * HOUR_HEIGHT)
   }, [events])
 
-  const handleLongPress = (type: 'event' | 'task', id: string, rect: DOMRect) => {
-    const barWidth = 220
-    let barTop = rect.bottom + 8
-    let barLeft = rect.left + rect.width / 2
-
-    // 화면 아래로 넘어가면 위에 표시
-    if (barTop + 44 > window.innerHeight - 80) {
-      barTop = rect.top - 52
-    }
-
-    // 좌우 클램핑
-    barLeft = Math.max(barWidth / 2 + 8, Math.min(barLeft, window.innerWidth - barWidth / 2 - 8))
-
-    setActionBar({ type, id, barTop, barLeft })
-  }
-
+  // Action bar handlers
   const handleEdit = () => {
     if (!actionBar) return
     if (actionBar.type === 'event') {
-      const event = events.find((e) => e.id === actionBar.id)
-      if (event) onEditEvent(event)
+      const ev = events.find((e) => e.id === actionBar.id)
+      if (ev) onEditEvent(ev)
     } else {
-      const task = tasks.find((t) => t.id === actionBar.id)
-      if (task) onEditTask(task)
+      const t = tasks.find((t) => t.id === actionBar.id)
+      if (t) onEditTask(t)
     }
     setActionBar(null)
   }
 
   const handleDelete = async () => {
     if (!actionBar) return
-    if (actionBar.type === 'event') {
-      await deleteEvent(actionBar.id)
-    } else {
-      await deleteTask(actionBar.id)
-    }
-    setActionBar(null)
-  }
-
-  const handleMove = () => {
-    if (!actionBar || !onMoveItem) return
-    onMoveItem(actionBar.type, actionBar.id)
+    if (actionBar.type === 'event') await deleteEvent(actionBar.id)
+    else await deleteTask(actionBar.id)
     setActionBar(null)
   }
 
@@ -227,14 +288,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         <div className="tl-allday">
           {allDayEvents.map((event) => {
             const cat = getCat(event.categoryId)
-            const lp = createLongPressHandlers((rect) => handleLongPress('event', event.id, rect))
             return (
               <div
                 key={event.id}
                 className={`tl-allday-item ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
-                onClick={() => { if (!actionBar) onEditEvent(event) }}
+                onClick={() => { if (!actionBar && !draggedId) onEditEvent(event) }}
                 style={{ borderLeftColor: cat?.color || '#64B5F6', background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.1)' }}
-                {...lp}
               >
                 <span className="tl-allday-title">
                   {(!event.title || event.title === '(제목 없음)') ? (cat ? `${cat.icon} ${cat.name}` : '') : event.title}
@@ -249,29 +308,25 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       {/* 시간 없는 태스크 */}
       {untimedTasks.length > 0 && (
         <div className="tl-untimed">
-          {untimedTasks.map((task) => {
-            const lp = createLongPressHandlers((rect) => handleLongPress('task', task.id, rect))
-            return (
-              <div
-                key={task.id}
-                className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                onClick={() => { if (!actionBar) onEditTask(task) }}
-                {...lp}
+          {untimedTasks.map((task) => (
+            <div
+              key={task.id}
+              className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+              onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+            >
+              <button
+                className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
               >
-                <button
-                  className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
-                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
-                >
-                  {task.isCompleted && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-                <span className={`tl-untimed-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-              </div>
-            )
-          })}
+                {task.isCompleted && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+              <span className={`tl-untimed-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -295,16 +350,22 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const headerHeight = 52
             const minHeight = Math.max(baseHeight, headerHeight + taskRowHeight)
             const color = eventCat?.color || '#64B5F6'
-
-            const lp = createLongPressHandlers((rect) => handleLongPress('event', event.id, rect))
+            const isDragging = draggedId === event.id
+            const handlers = makeItemHandlers('event', event.id, startMin)
 
             return (
               <div
                 key={event.id}
-                className={`tl-event-block ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
-                style={{ top, minHeight, borderLeftColor: color, background: `${color}22` }}
+                className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
+                style={{
+                  top,
+                  minHeight,
+                  borderLeftColor: color,
+                  background: `${color}22`,
+                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                }}
               >
-                <div className="tl-event-header" onClick={() => { if (!actionBar) onEditEvent(event) }} {...lp}>
+                <div className="tl-event-header" onClick={() => { if (!actionBar && !draggedId) onEditEvent(event) }} {...handlers}>
                   <div className="tl-event-header-top">
                     <span className="tl-event-cat-icon">{eventCat?.icon || ''}</span>
                     <span className="tl-event-cat-name">{eventCat?.name || event.title}</span>
@@ -313,7 +374,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                     )}
                   </div>
                   <span className="tl-event-time">
-                    {formatTimeKorean(event.startTime!)} ~ {event.endTime ? formatTimeKorean(event.endTime) : ''}
+                    {isDragging && dragTimeLabel ? dragTimeLabel : formatTimeKorean(event.startTime!)} ~ {event.endTime ? formatTimeKorean(event.endTime) : ''}
                   </span>
                 </div>
 
@@ -322,14 +383,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                     {groupTasks.map((task) => {
                       const taskTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime
                       const taskCat = getCat(task.categoryId)
-                      const taskLp = createLongPressHandlers((rect) => handleLongPress('task', task.id, rect))
+                      const taskMin = taskTime ? timeToMinutes(taskTime) : startMin
+                      const taskHandlers = makeItemHandlers('task', task.id, taskMin)
 
                       return (
                         <div
                           key={task.id}
                           className={`tl-nested-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                          onClick={() => { if (!actionBar) onEditTask(task) }}
-                          {...taskLp}
+                          onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+                          {...taskHandlers}
                         >
                           <button
                             className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
@@ -359,15 +421,19 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const min = timeToMinutes(displayTime)
             const top = (min / 60) * HOUR_HEIGHT
             const cat = getCat(task.categoryId)
-            const lp = createLongPressHandlers((rect) => handleLongPress('task', task.id, rect))
+            const isDragging = draggedId === task.id
+            const handlers = makeItemHandlers('task', task.id, min)
 
             return (
               <div
                 key={task.id}
-                className={`tl-task-row ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                style={{ top }}
-                onClick={() => { if (!actionBar) onEditTask(task) }}
-                {...lp}
+                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                style={{
+                  top,
+                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                }}
+                onClick={() => { if (!actionBar && !draggedId) onEditTask(task) }}
+                {...handlers}
               >
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
@@ -390,21 +456,14 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const d = routine.checkedAt!.toDate()
             const min = d.getHours() * 60 + d.getMinutes()
             const top = (min / 60) * HOUR_HEIGHT
-
             return (
               <div key={routine.id} className="tl-routine-row" style={{ top }}>
-                <button
-                  className="tl-task-check done"
-                  onClick={() => toggleRoutineComplete(routine.id, routine.isCompleted)}
-                >
+                <button className="tl-task-check done" onClick={() => toggleRoutineComplete(routine.id, routine.isCompleted)}>
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                <span
-                  className="tl-routine-icon"
-                  dangerouslySetInnerHTML={{ __html: ROUTINE_ICON_MAP[routine.iconId] || ROUTINE_ICON_MAP.stretch }}
-                />
+                <span className="tl-routine-icon" dangerouslySetInnerHTML={{ __html: ROUTINE_ICON_MAP[routine.iconId] || ROUTINE_ICON_MAP.stretch }} />
                 <span className="tl-task-title tl-done">{routine.title}</span>
               </div>
             )
@@ -412,11 +471,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         </div>
       </div>
 
-      {!hasContent && (
-        <p className="tl-empty">이 날의 일정과 할 일이 없습니다</p>
-      )}
+      {!hasContent && <p className="tl-empty">이 날의 일정과 할 일이 없습니다</p>}
 
-      {/* Apple Calendar 스타일 액션 바 */}
+      {/* Action bar (수정/삭제) */}
       {actionBar && (
         <>
           <div className="tl-action-overlay" onClick={closeActionBar} onTouchStart={closeActionBar} />
@@ -428,11 +485,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           >
             <button className="action-bar-btn" onClick={handleEdit}>수정</button>
             <button className="action-bar-btn action-delete" onClick={handleDelete}>삭제</button>
-            {onMoveItem && (
-              <button className="action-bar-btn" onClick={handleMove}>날짜 이동</button>
-            )}
           </div>
         </>
+      )}
+
+      {/* 드래그 시간 표시 */}
+      {draggedId && dragTimeLabel && (
+        <div className="tl-drag-time-badge">
+          {dragTimeLabel}
+        </div>
       )}
     </div>
   )
