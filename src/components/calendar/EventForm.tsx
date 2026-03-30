@@ -99,7 +99,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={editEvent ? 'Edit Event' : 'Add Event'}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={editEvent ? '일정 수정' : '일정 추가'} fullScreen>
       <div className="event-form">
         <input
           className="event-form-input"

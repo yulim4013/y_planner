@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { toggleTaskComplete, toggleSubItem, deleteTask } from '../../services/taskService'
@@ -17,65 +17,62 @@ interface DailyViewProps {
   onMoveItem?: (type: 'task' | 'event', id: string) => void
 }
 
-interface ContextMenuState {
+interface ActionBarState {
   type: 'event' | 'task'
   id: string
-  x: number
-  y: number
+  barTop: number
+  barLeft: number
 }
 
-function createLongPressHandlers(callback: (e: React.PointerEvent | React.TouchEvent) => void, ms = 600) {
+function createLongPressHandlers(onLongPress: (rect: DOMRect) => void, ms = 500) {
   let timer: ReturnType<typeof setTimeout> | null = null
   let startX = 0
   let startY = 0
   let triggered = false
+  let capturedTarget: HTMLElement | null = null
+
+  const clear = () => { if (timer) { clearTimeout(timer); timer = null } }
 
   return {
     onTouchStart: (e: React.TouchEvent) => {
       triggered = false
+      capturedTarget = e.currentTarget as HTMLElement
       startX = e.touches[0].clientX
       startY = e.touches[0].clientY
       timer = setTimeout(() => {
         triggered = true
-        callback(e)
+        if (capturedTarget) {
+          onLongPress(capturedTarget.getBoundingClientRect())
+          try { navigator.vibrate?.(20) } catch {}
+        }
         timer = null
       }, ms)
     },
-    onTouchEnd: (e: React.TouchEvent) => {
-      if (timer) { clearTimeout(timer); timer = null }
-      if (triggered) { e.preventDefault() }
-    },
+    onTouchEnd: (e: React.TouchEvent) => { clear(); if (triggered) e.preventDefault() },
     onTouchMove: (e: React.TouchEvent) => {
       const dx = e.touches[0].clientX - startX
       const dy = e.touches[0].clientY - startY
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        if (timer) { clearTimeout(timer); timer = null }
-      }
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear()
     },
     onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType === 'touch') return // handled by touch events
+      if (e.pointerType === 'touch') return
       triggered = false
+      capturedTarget = e.currentTarget as HTMLElement
       startX = e.clientX
       startY = e.clientY
       timer = setTimeout(() => {
         triggered = true
-        callback(e)
+        if (capturedTarget) onLongPress(capturedTarget.getBoundingClientRect())
         timer = null
       }, ms)
     },
-    onPointerUp: () => {
-      if (timer) { clearTimeout(timer); timer = null }
-    },
-    onPointerLeave: () => {
-      if (timer) { clearTimeout(timer); timer = null }
-    },
+    onPointerUp: clear,
+    onPointerLeave: clear,
     onPointerMove: (e: React.PointerEvent) => {
       if (e.pointerType === 'touch') return
       const dx = e.clientX - startX
       const dy = e.clientY - startY
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        if (timer) { clearTimeout(timer); timer = null }
-      }
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) clear()
     },
   }
 }
@@ -93,20 +90,9 @@ function formatTimeStr(time: string | null): string {
 export default function DailyView({ date, events, tasks, categories = [], onEditEvent, onEditTask, onMoveItem }: DailyViewProps) {
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
   const dateLabel = format(date, 'M월 d일 (EEEE)', { locale: ko })
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [actionBar, setActionBar] = useState<ActionBarState | null>(null)
 
-  // 외부 클릭 시 메뉴 닫기
-  useEffect(() => {
-    if (!contextMenu) return
-    const handleClick = () => setContextMenu(null)
-    document.addEventListener('click', handleClick)
-    document.addEventListener('touchstart', handleClick)
-    return () => {
-      document.removeEventListener('click', handleClick)
-      document.removeEventListener('touchstart', handleClick)
-    }
-  }, [contextMenu])
+  const closeActionBar = useCallback(() => setActionBar(null), [])
 
   const sortedEvents = [...events].sort((a, b) => {
     if (a.isAllDay && !b.isAllDay) return -1
@@ -116,35 +102,45 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
     return aTime.localeCompare(bTime)
   })
 
-  const handleLongPress = (type: 'event' | 'task', id: string, e: React.PointerEvent | React.TouchEvent) => {
-    let x: number, y: number
-    if ('touches' in e) {
-      x = e.touches[0]?.clientX ?? e.changedTouches[0]?.clientX ?? 0
-      y = e.touches[0]?.clientY ?? e.changedTouches[0]?.clientY ?? 0
-    } else {
-      x = e.clientX
-      y = e.clientY
+  const handleLongPress = (type: 'event' | 'task', id: string, rect: DOMRect) => {
+    const barWidth = 220
+    let barTop = rect.bottom + 8
+    let barLeft = rect.left + rect.width / 2
+
+    if (barTop + 44 > window.innerHeight - 80) {
+      barTop = rect.top - 52
     }
-    // 화면 밖으로 나가지 않도록 보정
-    x = Math.min(x, window.innerWidth - 140)
-    y = Math.min(y, window.innerHeight - 100)
-    setContextMenu({ type, id, x, y })
+
+    barLeft = Math.max(barWidth / 2 + 8, Math.min(barLeft, window.innerWidth - barWidth / 2 - 8))
+    setActionBar({ type, id, barTop, barLeft })
+  }
+
+  const handleEdit = () => {
+    if (!actionBar) return
+    if (actionBar.type === 'event') {
+      const event = events.find((e) => e.id === actionBar.id)
+      if (event) onEditEvent(event)
+    } else {
+      const task = tasks.find((t) => t.id === actionBar.id)
+      if (task) onEditTask(task)
+    }
+    setActionBar(null)
   }
 
   const handleDelete = async () => {
-    if (!contextMenu) return
-    if (contextMenu.type === 'event') {
-      await deleteEvent(contextMenu.id)
+    if (!actionBar) return
+    if (actionBar.type === 'event') {
+      await deleteEvent(actionBar.id)
     } else {
-      await deleteTask(contextMenu.id)
+      await deleteTask(actionBar.id)
     }
-    setContextMenu(null)
+    setActionBar(null)
   }
 
   const handleMove = () => {
-    if (!contextMenu || !onMoveItem) return
-    onMoveItem(contextMenu.type, contextMenu.id)
-    setContextMenu(null)
+    if (!actionBar || !onMoveItem) return
+    onMoveItem(actionBar.type, actionBar.id)
+    setActionBar(null)
   }
 
   const hasContent = events.length > 0 || tasks.length > 0
@@ -169,12 +165,12 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
           {sortedEvents.map((event) => {
             const eCat = getCat(event.categoryId)
             const isNoTitle = !event.title || event.title === '(제목 없음)'
-            const lp = createLongPressHandlers((e) => handleLongPress('event', event.id, e))
+            const lp = createLongPressHandlers((rect) => handleLongPress('event', event.id, rect))
             return (
               <div
                 key={event.id}
-                className={`daily-event ${contextMenu?.id === event.id ? 'dragging' : ''}`}
-                onClick={() => { if (!contextMenu) onEditEvent(event) }}
+                className={`daily-event ${actionBar?.id === event.id ? 'daily-selected' : ''}`}
+                onClick={() => { if (!actionBar) onEditEvent(event) }}
                 {...lp}
               >
                 <div className="event-color-bar" style={eCat ? { background: eCat.color } : {}} />
@@ -212,12 +208,12 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
               : task.dueTime
                 ? formatTimeStr(task.dueTime)
                 : null
-            const taskLp = createLongPressHandlers((e) => handleLongPress('task', task.id, e))
+            const taskLp = createLongPressHandlers((rect) => handleLongPress('task', task.id, rect))
             return (
-              <div key={task.id} className={`daily-task ${task.isCompleted ? 'daily-task-done' : ''} ${contextMenu?.id === task.id ? 'dragging' : ''}`}>
+              <div key={task.id} className={`daily-task ${task.isCompleted ? 'daily-task-done' : ''} ${actionBar?.id === task.id ? 'daily-selected' : ''}`}>
                 <div
                   className="daily-task-header"
-                  onClick={() => { if (!contextMenu) onEditTask(task) }}
+                  onClick={() => { if (!actionBar) onEditTask(task) }}
                   {...taskLp}
                 >
                   <button
@@ -273,36 +269,23 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
         <p className="daily-empty">이 날의 일정과 할 일이 없습니다</p>
       )}
 
-      {/* 꾹 눌러서 나오는 컨텍스트 메뉴 */}
-      {contextMenu && (
-        <div
-          ref={menuRef}
-          className="daily-context-menu"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
-          <button className="ctx-menu-item ctx-delete" onClick={handleDelete}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-            </svg>
-            삭제
-          </button>
-          {onMoveItem && (
-            <button className="ctx-menu-item" onClick={handleMove}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="17" rx="3" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <path d="M12 13l3 3-3 3" />
-                <line x1="8" y1="16" x2="15" y2="16" />
-              </svg>
-              날짜 이동
-            </button>
-          )}
-        </div>
+      {/* Apple Calendar 스타일 액션 바 */}
+      {actionBar && (
+        <>
+          <div className="daily-action-overlay" onClick={closeActionBar} onTouchStart={closeActionBar} />
+          <div
+            className="daily-action-bar"
+            style={{ top: actionBar.barTop, left: actionBar.barLeft }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <button className="action-bar-btn" onClick={handleEdit}>수정</button>
+            <button className="action-bar-btn action-delete" onClick={handleDelete}>삭제</button>
+            {onMoveItem && (
+              <button className="action-bar-btn" onClick={handleMove}>날짜 이동</button>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

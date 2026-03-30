@@ -5,6 +5,7 @@
   z-index: 200;
 }
 
+/* 기본 바텀시트 (짧은 메뉴용) */
 .bottom-sheet {
   position: fixed;
   bottom: 0;
@@ -44,4 +45,61 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--space-lg) + var(--safe-area-bottom));
+}
+
+/* 풀스크린 모드 (폼 입력용) - 애플 캘린더 스타일 */
+.bottom-sheet-full {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 201;
+  background: var(--color-bg) !important;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-base);
+  padding-top: calc(var(--safe-area-top) + var(--space-xs));
+}
+
+/* 풀스크린 상단 바 */
+.bs-topbar {
+  display: flex;
+  align-items: center;
+  padding: var(--space-sm) 0 var(--space-md);
+  flex-shrink: 0;
+}
+
+.bs-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  box-shadow: var(--neu-concave);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bs-close-btn:active {
+  transform: scale(0.92);
+}
+
+.bs-topbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.bs-topbar-spacer {
+  width: 32px;
+  flex-shrink: 0;
 }

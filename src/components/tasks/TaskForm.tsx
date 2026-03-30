@@ -117,14 +117,13 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
   }
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={editTask ? 'Edit Task' : 'Add Task'}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={editTask ? '할 일 수정' : '할 일 추가'} fullScreen>
       <div className="task-form">
         <input
           className="task-form-input"
           placeholder="제목을 입력하세요"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
         />
 
         <textarea

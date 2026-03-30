@@ -21,6 +21,8 @@
   border-left: 3px solid #64B5F6;
   border-radius: 6px;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .tl-allday-title {
@@ -52,6 +54,8 @@
   gap: 8px;
   padding: 4px 0;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .tl-untimed-title {
@@ -107,6 +111,7 @@
   border-radius: 8px;
   overflow: hidden;
   z-index: 1;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .tl-event-header {
@@ -159,6 +164,8 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   cursor: pointer;
   background: rgba(255, 255, 255, 0.3);
+  touch-action: manipulation;
+  transition: transform 0.15s, background 0.15s;
 }
 
 .tl-nested-task:last-child {
@@ -222,6 +229,7 @@
   border-radius: 6px;
   border: 1px solid var(--color-divider);
   touch-action: manipulation;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .tl-task-title {
@@ -274,48 +282,62 @@
   padding: 40px 0;
 }
 
-/* 컨텍스트 메뉴 (꾹 눌러서 삭제/수정) */
-.tl-context-menu {
+/* ========== 선택된 아이템 시각 피드백 ========== */
+.tl-selected {
+  transform: scale(1.03);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  z-index: 10 !important;
+}
+
+/* ========== Apple Calendar 스타일 액션 바 ========== */
+.tl-action-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 299;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tl-action-bar {
   position: fixed;
   z-index: 300;
-  background: var(--color-bg);
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-  overflow: hidden;
-  min-width: 140px;
-  animation: tl-ctx-pop 0.15s ease-out;
-}
-
-@keyframes tl-ctx-pop {
-  from { transform: scale(0.85); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.tl-context-menu .ctx-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 18px;
+  background: rgba(55, 55, 55, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  animation: action-bar-pop 0.15s ease-out;
+}
+
+@keyframes action-bar-pop {
+  from { transform: translateX(-50%) scale(0.85); opacity: 0; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+.action-bar-btn {
+  padding: 11px 18px;
+  color: #fff;
   border: none;
   background: none;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--color-text);
   cursor: pointer;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.1s, transform 0.1s;
+  transition: background 0.1s;
 }
 
-.tl-context-menu .ctx-menu-item:active {
-  background: rgba(0,0,0,0.08);
-  transform: scale(0.96);
+.action-bar-btn:active {
+  background: rgba(255, 255, 255, 0.15);
 }
 
-.tl-context-menu .ctx-menu-item + .ctx-menu-item {
-  border-top: 1px solid var(--color-divider);
+.action-bar-btn + .action-bar-btn {
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.tl-context-menu .ctx-menu-item.ctx-delete {
+.action-bar-btn.action-delete {
   color: #FF6B6B;
 }

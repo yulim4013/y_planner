@@ -7,9 +7,10 @@ interface BottomSheetProps {
   onClose: () => void
   children: ReactNode
   title?: string
+  fullScreen?: boolean
 }
 
-export default function BottomSheet({ isOpen, onClose, children, title }: BottomSheetProps) {
+export default function BottomSheet({ isOpen, onClose, children, title, fullScreen }: BottomSheetProps) {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -23,7 +24,6 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
     }
   }, [isOpen])
 
-  // 애니메이션 완료 후 스크롤 맨 위로
   const handleAnimationComplete = useCallback(() => {
     if (contentRef.current) {
       contentRef.current.scrollTop = 0
@@ -43,15 +43,30 @@ export default function BottomSheet({ isOpen, onClose, children, title }: Bottom
             onClick={onClose}
           />
           <motion.div
-            className="bottom-sheet glass-strong"
+            className={`bottom-sheet ${fullScreen ? 'bottom-sheet-full' : 'glass-strong'}`}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onAnimationComplete={handleAnimationComplete}
           >
-            <div className="bottom-sheet-handle" />
-            {title && <h2 className="bottom-sheet-title">{title}</h2>}
+            {fullScreen ? (
+              <div className="bs-topbar">
+                <button className="bs-close-btn" onClick={onClose} type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+                {title && <span className="bs-topbar-title">{title}</span>}
+                <div className="bs-topbar-spacer" />
+              </div>
+            ) : (
+              <>
+                <div className="bottom-sheet-handle" />
+                {title && <h2 className="bottom-sheet-title">{title}</h2>}
+              </>
+            )}
             <div className="bottom-sheet-content" ref={contentRef}>
               {children}
             </div>
