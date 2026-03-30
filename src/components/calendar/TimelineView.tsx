@@ -262,6 +262,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       onMouseDown: (e: React.MouseEvent) => {
         if (e.button !== 0) return
         if (actionBar) { setActionBar(null); return }
+        e.preventDefault() // Prevent browser text-selection / native drag
         lpTriggeredRef.current = false
         const el = e.currentTarget as HTMLElement
         const startPos = { x: e.clientX, y: e.clientY }
@@ -273,7 +274,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           }
         }
         const onPreUp = () => {
-          if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+          if (lpTimerRef.current) {
+            // Quick release before long-press → treat as click
+            clearTimeout(lpTimerRef.current)
+            lpTimerRef.current = null
+            el.click()
+          }
           cleanupPre()
         }
         const cleanupPre = () => {

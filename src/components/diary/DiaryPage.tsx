@@ -114,7 +114,29 @@ export default function DiaryPage() {
               </div>
             </div>
             <p className="diary-entry-content">{todayEntry.content}</p>
-            {todayEntry.tasksSummary.length > 0 && (
+            {todayEntry.photos && todayEntry.photos.length > 0 && (
+              <div className="diary-entry-photos">
+                {todayEntry.photos.map((photo, i) => (
+                  <div key={i} className="diary-entry-photo">
+                    <img src={photo.url} alt="" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {todayEntry.links && todayEntry.links.length > 0 && (
+              <div className="diary-entry-links">
+                {todayEntry.links.map((link, i) => (
+                  <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="diary-entry-link">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                    </svg>
+                    <span>{link.replace(/^https?:\/\//, '').slice(0, 50)}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+            {todayEntry.tasksSummary && todayEntry.tasksSummary.length > 0 && (
               <div className="diary-summary">
                 <span className="diary-summary-icon">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 12l3 3 5-6" /></svg>
@@ -122,7 +144,7 @@ export default function DiaryPage() {
                 <span className="diary-summary-text">{todayEntry.tasksSummary.join(', ')}</span>
               </div>
             )}
-            {todayEntry.eventsSummary.length > 0 && (
+            {todayEntry.eventsSummary && todayEntry.eventsSummary.length > 0 && (
               <div className="diary-summary">
                 <span className="diary-summary-icon">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="4" width="18" height="17" rx="3" /><line x1="3" y1="9" x2="21" y2="9" /></svg>

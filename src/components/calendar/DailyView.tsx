@@ -116,6 +116,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
   const handleItemMouseDown = (e: React.MouseEvent, type: 'event' | 'task', id: string) => {
     if (e.button !== 0) return
     if (actionBar) { setActionBar(null); return }
+    e.preventDefault() // Prevent browser text-selection / native drag
     lpTriggeredRef.current = false
     const el = e.currentTarget as HTMLElement
     const startPos = { x: e.clientX, y: e.clientY }
@@ -127,7 +128,12 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
       }
     }
     const onPreUp = () => {
-      if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+      if (lpTimerRef.current) {
+        // Quick release before long-press → treat as click
+        clearTimeout(lpTimerRef.current)
+        lpTimerRef.current = null
+        el.click()
+      }
       cleanupPre()
     }
     const cleanupPre = () => {

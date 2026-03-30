@@ -9,9 +9,10 @@ import {
   onSnapshot,
   Timestamp,
 } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, storage } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
-import type { DiaryEntry, Mood } from '../types'
+import type { DiaryEntry, DiaryPhoto, Mood } from '../types'
 
 function getDiaryRef() {
   const uid = useAuthStore.getState().user?.uid
@@ -35,10 +36,81 @@ export function subscribeDiaryEntries(callback: (entries: DiaryEntry[]) => void)
   })
 }
 
+export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
+  const uid = useAuthStore.getState().user?.uid
+  if (!uid || !storage) return null
+
+  const ext = file.name.split('.').pop() || 'jpg'
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const storagePath = `users/${uid}/diary/${fileName}`
+  const storageRef = ref(storage, storagePath)
+
+  // Compress image if too large (> 1MB)
+  let uploadFile = file
+  if (file.size > 1024 * 1024) {
+    uploadFile = await compressImage(file, 0.7, 1200)
+  }
+
+  await uploadBytes(storageRef, uploadFile)
+  const url = await getDownloadURL(storageRef)
+
+  return {
+    url,
+    storagePath,
+    caption: '',
+    uploadedAt: Timestamp.now(),
+  }
+}
+
+export async function deleteDiaryPhoto(storagePath: string) {
+  if (!storage) return
+  try {
+    const storageRef = ref(storage, storagePath)
+    await deleteObject(storageRef)
+  } catch (err) {
+    console.warn('Photo delete error:', err)
+  }
+}
+
+async function compressImage(file: File, quality: number, maxSize: number): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = (height / width) * maxSize
+          width = maxSize
+        } else {
+          width = (width / height) * maxSize
+          height = maxSize
+        }
+      }
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => {
+          resolve(new File([blob!], file.name, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        quality
+      )
+    }
+    img.src = url
+  })
+}
+
 export async function addDiaryEntry(data: {
   date: Date
   mood: Mood | null
   content: string
+  photos?: DiaryPhoto[]
+  links?: string[]
   tasksSummary?: string[]
   eventsSummary?: string[]
 }) {
@@ -46,7 +118,6 @@ export async function addDiaryEntry(data: {
   if (!ref) return null
 
   const now = Timestamp.now()
-  // Normalize date to start of day
   const normalized = new Date(data.date)
   normalized.setHours(0, 0, 0, 0)
 
@@ -54,7 +125,8 @@ export async function addDiaryEntry(data: {
     date: Timestamp.fromDate(normalized),
     content: data.content,
     mood: data.mood,
-    photos: [],
+    photos: data.photos || [],
+    links: data.links || [],
     tasksSummary: data.tasksSummary || [],
     eventsSummary: data.eventsSummary || [],
     createdAt: now,

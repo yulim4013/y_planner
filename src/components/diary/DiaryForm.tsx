@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import BottomSheet from '../common/BottomSheet'
-import { addDiaryEntry, updateDiaryEntry } from '../../services/diaryService'
-import type { DiaryEntry, Mood } from '../../types'
+import { addDiaryEntry, updateDiaryEntry, uploadDiaryPhoto, deleteDiaryPhoto } from '../../services/diaryService'
+import type { DiaryEntry, DiaryPhoto, Mood } from '../../types'
 import './DiaryForm.css'
 
 interface DiaryFormProps {
@@ -24,26 +24,82 @@ const MOODS: { value: Mood; emoji: string; label: string }[] = [
 export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: DiaryFormProps) {
   const [mood, setMood] = useState<Mood | null>(null)
   const [content, setContent] = useState('')
+  const [photos, setPhotos] = useState<DiaryPhoto[]>([])
+  const [links, setLinks] = useState<string[]>([])
+  const [linkInput, setLinkInput] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen) {
       setMood(editEntry?.mood ?? null)
       setContent(editEntry?.content ?? '')
+      setPhotos(editEntry?.photos ?? [])
+      setLinks(editEntry?.links ?? [])
+      setLinkInput('')
     }
   }, [isOpen, editEntry])
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const newPhotos: DiaryPhoto[] = []
+      for (let i = 0; i < files.length; i++) {
+        const photo = await uploadDiaryPhoto(files[i])
+        if (photo) newPhotos.push(photo)
+      }
+      setPhotos((prev) => [...prev, ...newPhotos])
+    } catch (err) {
+      console.error('Photo upload error:', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemovePhoto = async (index: number) => {
+    const photo = photos[index]
+    if (photo.storagePath) {
+      await deleteDiaryPhoto(photo.storagePath)
+    }
+    setPhotos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleAddLink = () => {
+    const url = linkInput.trim()
+    if (!url) return
+    // Auto-add https if missing
+    const finalUrl = url.match(/^https?:\/\//) ? url : `https://${url}`
+    setLinks((prev) => [...prev, finalUrl])
+    setLinkInput('')
+  }
+
+  const handleRemoveLink = (index: number) => {
+    setLinks((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSave = async () => {
-    if (!content.trim() && !mood) return
+    if (!content.trim() && !mood && photos.length === 0) return
     setSaving(true)
     try {
       if (editEntry) {
-        await updateDiaryEntry(editEntry.id, { mood, content: content.trim() })
+        await updateDiaryEntry(editEntry.id, {
+          mood,
+          content: content.trim(),
+          photos,
+          links,
+        })
       } else {
         await addDiaryEntry({
           date: selectedDate,
           mood,
           content: content.trim(),
+          photos,
+          links,
         })
       }
       onClose()
@@ -87,8 +143,81 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
             placeholder="오늘 하루는 어땠나요?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows={12}
+            rows={8}
           />
+        </div>
+
+        {/* 사진 추가 */}
+        <div className="diary-form-section">
+          <label className="diary-form-label">사진</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotoSelect}
+            style={{ display: 'none' }}
+          />
+          <div className="diary-photos-grid">
+            {photos.map((photo, i) => (
+              <div key={i} className="diary-photo-thumb">
+                <img src={photo.url} alt="" />
+                <button className="diary-photo-remove" onClick={() => handleRemovePhoto(i)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            <button
+              className="diary-photo-add-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <div className="diary-upload-spinner" />
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              )}
+              <span>{uploading ? '업로드 중...' : '사진 추가'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 링크 추가 */}
+        <div className="diary-form-section">
+          <label className="diary-form-label">링크</label>
+          <div className="diary-link-input-row">
+            <input
+              className="diary-link-input"
+              type="url"
+              placeholder="URL을 입력하세요"
+              value={linkInput}
+              onChange={(e) => setLinkInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddLink() } }}
+            />
+            <button className="diary-link-add-btn" onClick={handleAddLink} disabled={!linkInput.trim()}>추가</button>
+          </div>
+          {links.length > 0 && (
+            <div className="diary-links-list">
+              {links.map((link, i) => (
+                <div key={i} className="diary-link-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                  </svg>
+                  <a href={link} target="_blank" rel="noopener noreferrer" className="diary-link-url">{link.replace(/^https?:\/\//, '').slice(0, 40)}{link.replace(/^https?:\/\//, '').length > 40 ? '...' : ''}</a>
+                  <button className="diary-link-remove" onClick={() => handleRemoveLink(i)}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 저장 버튼 */}
@@ -96,7 +225,7 @@ export default function DiaryForm({ isOpen, onClose, editEntry, selectedDate }: 
           <button
             className="diary-form-save"
             onClick={handleSave}
-            disabled={saving || (!content.trim() && !mood)}
+            disabled={saving || uploading || (!content.trim() && !mood && photos.length === 0)}
           >
             {saving ? '저장 중...' : editEntry ? '수정하기' : '저장하기'}
           </button>

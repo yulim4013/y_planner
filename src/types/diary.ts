@@ -15,6 +15,7 @@ export interface DiaryEntry {
   content: string
   mood: Mood | null
   photos: DiaryPhoto[]
+  links: string[]
   tasksSummary: string[]
   eventsSummary: string[]
   createdAt: Timestamp
