@@ -85,10 +85,12 @@ export default function CalendarPage() {
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
 
-  // 주간 스트립 스와이프 (애니메이션 포함)
+  // 스와이프 공통 (주간 스트립 + 월간 뷰)
   const swipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
   const [stripOffset, setStripOffset] = useState(0)
   const [stripAnimating, setStripAnimating] = useState(false)
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [monthAnimating, setMonthAnimating] = useState(false)
 
   const handleStripTouchStart = useCallback((e: React.TouchEvent) => {
     setStripAnimating(false)
@@ -115,7 +117,6 @@ export default function CalendarPage() {
     swipeRef.current = null
 
     if (isHoriz && Math.abs(dx) > 50) {
-      // 전환 애니메이션: 완전히 밀어내기
       setStripAnimating(true)
       setStripOffset(dx > 0 ? window.innerWidth : -window.innerWidth)
       setTimeout(() => {
@@ -123,12 +124,54 @@ export default function CalendarPage() {
         else setSelectedDate((d) => addWeeks(d, 1))
         setStripOffset(0)
         setStripAnimating(false)
-      }, 200)
+      }, 350)
     } else {
-      // 복귀 애니메이션
       setStripAnimating(true)
       setStripOffset(0)
-      setTimeout(() => setStripAnimating(false), 200)
+      setTimeout(() => setStripAnimating(false), 350)
+    }
+  }, [])
+
+  // 월간 뷰 스와이프
+  const monthSwipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
+
+  const handleMonthTouchStart = useCallback((e: React.TouchEvent) => {
+    setMonthAnimating(false)
+    monthSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
+  }, [])
+
+  const handleMonthTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!monthSwipeRef.current) return
+    const dx = e.touches[0].clientX - monthSwipeRef.current.startX
+    const dy = e.touches[0].clientY - monthSwipeRef.current.startY
+    if (!monthSwipeRef.current.decided && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      monthSwipeRef.current.decided = true
+      monthSwipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy)
+    }
+    if (monthSwipeRef.current.isHorizontal) {
+      setMonthOffset(dx)
+    }
+  }, [])
+
+  const handleMonthTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!monthSwipeRef.current) return
+    const dx = e.changedTouches[0].clientX - monthSwipeRef.current.startX
+    const isHoriz = monthSwipeRef.current.isHorizontal
+    monthSwipeRef.current = null
+
+    if (isHoriz && Math.abs(dx) > 50) {
+      setMonthAnimating(true)
+      setMonthOffset(dx > 0 ? window.innerWidth : -window.innerWidth)
+      setTimeout(() => {
+        if (dx > 0) setCurrentDate((d) => subMonths(d, 1))
+        else setCurrentDate((d) => addMonths(d, 1))
+        setMonthOffset(0)
+        setMonthAnimating(false)
+      }, 350)
+    } else {
+      setMonthAnimating(true)
+      setMonthOffset(0)
+      setTimeout(() => setMonthAnimating(false), 350)
     }
   }, [])
 
@@ -303,16 +346,26 @@ export default function CalendarPage() {
       {view === 'month' && (
         <div className="cal-desktop-row">
           <GlassCard>
-            <MonthlyView
-              currentDate={currentDate}
-              events={events}
-              tasks={tasks}
-              transactions={transactions}
-              selectedDate={selectedDate}
-              onSelectDate={handleSelectDate}
-              isMoving={!!movingItem}
-              onMoveToDate={handleMoveToDate}
-            />
+            <div
+              onTouchStart={handleMonthTouchStart}
+              onTouchMove={handleMonthTouchMove}
+              onTouchEnd={handleMonthTouchEnd}
+              style={{
+                transform: monthOffset ? `translateX(${monthOffset}px)` : undefined,
+                transition: monthAnimating ? 'transform 0.35s ease-out' : 'none',
+              }}
+            >
+              <MonthlyView
+                currentDate={currentDate}
+                events={events}
+                tasks={tasks}
+                transactions={transactions}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+                isMoving={!!movingItem}
+                onMoveToDate={handleMoveToDate}
+              />
+            </div>
           </GlassCard>
           <GlassCard className="cal-daily-card">
             <DailyView
@@ -348,7 +401,7 @@ export default function CalendarPage() {
                 className="week-strip-days"
                 style={{
                   transform: stripOffset ? `translateX(${stripOffset}px)` : undefined,
-                  transition: stripAnimating ? 'transform 0.2s ease-out' : 'none',
+                  transition: stripAnimating ? 'transform 0.35s ease-out' : 'none',
                 }}
               >
                 {weekDays.map((day) => {
@@ -387,7 +440,6 @@ export default function CalendarPage() {
               tasks={dayTasks}
               routines={routines}
               categories={categories}
-              sleepRecords={sleepRecords}
               sleepInfo={sleepInfo}
               onEditEvent={handleEditEvent}
               onEditTask={handleEditTask}

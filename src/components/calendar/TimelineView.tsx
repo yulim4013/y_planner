@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { toggleTaskComplete, deleteTask, updateTask, addTask } from '../../services/taskService'
 import { deleteEvent, updateEvent, addEvent } from '../../services/eventService'
 import { toggleRoutineComplete } from '../../services/routineService'
+import { deleteSleepRecord } from '../../services/sleepService'
 import type { CalendarEvent, Task, Category, Routine, SleepRecord } from '../../types'
 import './TimelineView.css'
 
@@ -9,6 +10,8 @@ interface SleepInfo {
   sleepTime: string | null
   wakeTime: string | null
   durationMin: number
+  sleepRecord: SleepRecord | null
+  wakeRecord: SleepRecord | null
 }
 
 interface TimelineViewProps {
@@ -16,7 +19,6 @@ interface TimelineViewProps {
   tasks: Task[]
   routines?: Routine[]
   categories?: Category[]
-  sleepRecords?: SleepRecord[]
   sleepInfo?: SleepInfo
   onEditEvent: (event: CalendarEvent) => void
   onEditTask: (task: Task) => void
@@ -25,8 +27,9 @@ interface TimelineViewProps {
 }
 
 interface ActionBarState {
-  type: 'event' | 'task'
+  type: 'event' | 'task' | 'sleep'
   id: string
+  id2?: string  // second record id (for sleep pair)
   barTop: number
   barLeft: number
 }
@@ -71,7 +74,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], sleepRecords = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -394,16 +397,21 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     if (actionBar.type === 'event') {
       const ev = events.find((e) => e.id === actionBar.id)
       if (ev) onEditEvent(ev)
-    } else {
+    } else if (actionBar.type === 'task') {
       const t = tasks.find((t) => t.id === actionBar.id)
       if (t) onEditTask(t)
     }
+    // sleep: 수정 폼 없으므로 무시
     setActionBar(null)
   }
 
   const handleDelete = async () => {
     if (!actionBar) return
     if (actionBar.type === 'event') await deleteEvent(actionBar.id)
+    else if (actionBar.type === 'sleep') {
+      await deleteSleepRecord(actionBar.id)
+      if (actionBar.id2) await deleteSleepRecord(actionBar.id2)
+    }
     else await deleteTask(actionBar.id)
     setActionBar(null)
   }
@@ -540,39 +548,32 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActiveEventId(null)
   }, [])
 
-  // 수면 블록 계산 (date+time 문자열 기반)
-  const sleepBlocks: { top: number; height: number; label: string; detail: string }[] = []
-  if (sleepInfo && sleepInfo.durationMin > 0) {
-    // sleepInfo에서 이미 계산된 시간 사용, time 필드로 위치 결정
-    const wakeRecords = sleepRecords.filter((r) => r.type === 'wake' && r.time)
-    const sleepRecs = sleepRecords.filter((r) => r.type === 'sleep' && r.time)
-    const wakeRecord = wakeRecords.length > 0 ? wakeRecords[wakeRecords.length - 1] : null
-    const sleepRecord = sleepRecs.length > 0 ? sleepRecs[sleepRecs.length - 1] : null
+  // 수면 블록 계산 (sleepInfo에서 이미 매칭된 record 사용)
+  const sleepBlocks: { top: number; height: number; label: string; detail: string; sleepId: string; wakeId: string }[] = []
+  if (sleepInfo && sleepInfo.durationMin > 0 && sleepInfo.sleepRecord && sleepInfo.wakeRecord) {
+    const { sleepRecord, wakeRecord } = sleepInfo
+    const [wh, wm] = wakeRecord.time.split(':').map(Number)
+    const [sh, sm] = sleepRecord.time.split(':').map(Number)
+    const hrs = Math.floor(sleepInfo.durationMin / 60)
+    const mins = sleepInfo.durationMin % 60
+    const label = `${hrs}시간${mins > 0 ? ` ${mins}분` : ''}`
+    const detail = `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`
 
-    if (sleepRecord && wakeRecord) {
-      const [wh, wm] = wakeRecord.time.split(':').map(Number)
-      const [sh, sm] = sleepRecord.time.split(':').map(Number)
-      const hrs = Math.floor(sleepInfo.durationMin / 60)
-      const mins = sleepInfo.durationMin % 60
-      const label = `${hrs}시간${mins > 0 ? ` ${mins}분` : ''}`
-      const detail = `${sleepInfo.sleepTime} ~ ${sleepInfo.wakeTime}`
-
-      if (sleepRecord.date !== wakeRecord.date) {
-        // 전날 밤 취침 → 0시~기상 블록
-        const wakeMin = wh * 60 + wm
-        if (wakeMin > 0) {
-          sleepBlocks.push({ top: 0, height: (wakeMin / 60) * HOUR_HEIGHT, label, detail })
-        }
-      } else {
-        // 같은 날 수면
-        const sleepMin = sh * 60 + sm
-        const wakeMin = wh * 60 + wm
-        sleepBlocks.push({
-          top: (sleepMin / 60) * HOUR_HEIGHT,
-          height: ((wakeMin - sleepMin) / 60) * HOUR_HEIGHT,
-          label, detail,
-        })
+    if (sleepRecord.date !== wakeRecord.date) {
+      // 전날 밤 취침 → 0시~기상 블록
+      const wakeMin = wh * 60 + wm
+      if (wakeMin > 0) {
+        sleepBlocks.push({ top: 0, height: (wakeMin / 60) * HOUR_HEIGHT, label, detail, sleepId: sleepRecord.id, wakeId: wakeRecord.id })
       }
+    } else {
+      // 같은 날 수면
+      const sleepMin = sh * 60 + sm
+      const wakeMin = wh * 60 + wm
+      sleepBlocks.push({
+        top: (sleepMin / 60) * HOUR_HEIGHT,
+        height: ((wakeMin - sleepMin) / 60) * HOUR_HEIGHT,
+        label, detail, sleepId: sleepRecord.id, wakeId: wakeRecord.id,
+      })
     }
   }
 
@@ -843,12 +844,24 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           {sleepBlocks.map((block, i) => (
             <div
               key={`sleep-${i}`}
-              className="tl-sleep-block"
+              className={`tl-sleep-block ${actionBar?.type === 'sleep' && actionBar.id === block.sleepId ? 'tl-selected' : ''}`}
               style={{ top: block.top, height: Math.max(block.height, 40) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
+                if (actionBar || draggedId) return
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                const bw = 180
+                let bt = rect.bottom + 8
+                let bl = rect.left + rect.width / 2
+                if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
+                bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
+                setActionBar({ type: 'sleep', id: block.sleepId, id2: block.wakeId, barTop: bt, barLeft: bl })
+              }}
             >
               <div className="tl-sleep-content">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 4h6l-6 6h6"/><path d="M12 2h4l-4 4h4"/><path d="M18 8h2l-2 2h2"/>
                 </svg>
                 <span className="tl-sleep-label">{block.label}</span>
                 <span className="tl-sleep-detail">{block.detail}</span>
@@ -896,8 +909,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            <button className="action-bar-btn" onClick={handleEdit}>수정</button>
-            <button className="action-bar-btn" onClick={handleDuplicate}>복제</button>
+            {actionBar.type !== 'sleep' && <button className="action-bar-btn" onClick={handleEdit}>수정</button>}
+            {actionBar.type !== 'sleep' && <button className="action-bar-btn" onClick={handleDuplicate}>복제</button>}
             <button className="action-bar-btn action-delete" onClick={handleDelete}>삭제</button>
           </div>
         </>

@@ -361,8 +361,8 @@ export default function DashboardPage() {
       {/* 수면 시간 */}
       {sleepInfo.durationMin > 0 && (
         <div className="sleep-summary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 4h6l-6 6h6"/><path d="M12 2h4l-4 4h4"/><path d="M18 8h2l-2 2h2"/>
           </svg>
           <span className="sleep-duration">{sleepHours}시간 {sleepMins > 0 ? `${sleepMins}분` : ''}</span>
           <span className="sleep-detail">{sleepInfo.sleepTime} ~ {sleepInfo.wakeTime}</span>
