@@ -142,9 +142,9 @@ export default function DashboardPage() {
   // Routine progress
   const routineCompletedCount = routines.filter((r) => r.isCompleted).length
 
-  // 일정 카테고리별 시간 통계
+  // 일정 카테고리별 시간 통계 (카테고리 ID 기반 매칭)
   const categoryTimeStats = (() => {
-    const stats: { name: string; icon: string; color: string; minutes: number }[] = []
+    const statsMap = new Map<string, { name: string; icon: string; color: string; minutes: number }>()
 
     todayEvents.forEach((evt) => {
       if (evt.isAllDay || !evt.startTime || !evt.endTime) return
@@ -154,21 +154,38 @@ export default function DashboardPage() {
       const cat = evt.categoryId ? categories.find((c) => c.id === evt.categoryId) : null
       if (!cat) return
 
-      const existing = stats.find((s) => s.name === cat.name)
+      const key = cat.id
+      const existing = statsMap.get(key)
       if (existing) {
         existing.minutes += durationMin
       } else {
-        stats.push({ name: cat.name, icon: cat.icon, color: cat.color, minutes: durationMin })
+        statsMap.set(key, { name: cat.name, icon: cat.icon, color: cat.color, minutes: durationMin })
       }
     })
 
-    return stats.sort((a, b) => b.minutes - a.minutes)
+    return Array.from(statsMap.values()).sort((a, b) => b.minutes - a.minutes)
   })()
 
   const handleAddRoutine = async () => {
     if (!routineTitle.trim()) return
     const isWater = selectedIconId === 'water'
     const targetMl = isWater ? parseInt(waterGoal) || 2000 : undefined
+
+    // 낙관적 UI 업데이트 - 즉시 화면에 반영
+    const tempId = `temp-${Date.now()}`
+    const newRoutine: Routine = {
+      id: tempId,
+      templateId: '',
+      iconId: selectedIconId,
+      title: routineTitle.trim(),
+      isCompleted: false,
+      date: routineDateStr,
+      order: templates.length,
+      checkedAt: null,
+      ...(targetMl ? { targetMl, currentMl: 0 } : {}),
+    } as Routine
+    setRoutines((prev) => [...prev, newRoutine])
+
     const tmplDoc = await addRoutineTemplate({
       iconId: selectedIconId,
       title: routineTitle.trim(),
@@ -177,7 +194,6 @@ export default function DashboardPage() {
       endDate,
       targetMl,
     })
-    // 오늘이 범위 안이면 루틴 인스턴스도 즉시 생성
     if (tmplDoc && startDate <= routineDateStr && endDate >= routineDateStr) {
       await addRoutine({
         templateId: tmplDoc.id,
@@ -231,7 +247,7 @@ export default function DashboardPage() {
           { name: '공부', color: '#C8E6C9', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>' },
           { name: '운동', color: '#FFD1DC', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M4 17l4-4 4 4 4-4 4 4"/><line x1="12" y1="7" x2="12" y2="13"/></svg>' },
         ].map((cat) => {
-          const stat = categoryTimeStats.find((s) => s.name === cat.name)
+          const stat = categoryTimeStats.find((s) => s.name === cat.name || s.name.includes(cat.name))
           const minutes = stat?.minutes || 0
           return (
             <div key={cat.name} className="dash-cat-card">
@@ -305,7 +321,7 @@ export default function DashboardPage() {
                           onClick={() => decrementWater(routine.id, routine.currentMl || 0)}
                         >−</button>
                       )}
-                      <button className="routine-delete" onClick={() => deleteRoutine(routine.id)}>×</button>
+                      <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                     </div>
                   </div>
                 ) : (
@@ -328,7 +344,7 @@ export default function DashboardPage() {
                     <span className={`routine-title ${routine.isCompleted ? 'done-text' : ''}`}>
                       {routine.title}
                     </span>
-                    <button className="routine-delete" onClick={() => deleteRoutine(routine.id)}>×</button>
+                    <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                   </>
                 )}
               </div>

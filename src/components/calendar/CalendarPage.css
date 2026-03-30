@@ -198,9 +198,11 @@
 
 /* Day view flex layout - 헤더 고정, 타임라인만 스크롤 */
 .day-view-layout {
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .day-view-header-pinned {

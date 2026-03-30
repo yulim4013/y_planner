@@ -1,5 +1,8 @@
 .daily-view {
   margin-top: 8px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .daily-date {
@@ -106,6 +109,7 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--color-divider);
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .daily-event:last-child { border-bottom: none; }
@@ -149,6 +153,7 @@
 .daily-task {
   padding: 8px 0;
   border-bottom: 1px solid var(--color-divider);
+  touch-action: manipulation;
 }
 
 .daily-task:last-child { border-bottom: none; }

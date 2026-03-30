@@ -172,7 +172,7 @@ export default function CalendarPage() {
     : null
 
   return (
-    <div className="page">
+    <div className={`page ${view === 'day' ? 'page-fixed' : ''}`}>
       <Header title="CALENDAR" right={
         <button className="header-add-btn" onClick={handleAddEvent}>+</button>
       } />

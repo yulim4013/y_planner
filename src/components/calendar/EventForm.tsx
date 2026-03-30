@@ -106,7 +106,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
           placeholder="일정 제목"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
+          /* autoFocus 제거 - 모바일에서 키보드가 올라오면서 form이 밀리는 문제 방지 */
         />
 
         <div className="event-form-row">

@@ -107,6 +107,17 @@ img {
   min-height: 100dvh;
 }
 
+/* 캘린더 일뷰 등에서 페이지 스크롤 방지, 내부 영역만 스크롤 */
+.page-fixed {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
 .page-title {
   font-size: var(--font-size-2xl);
   font-weight: 700;
