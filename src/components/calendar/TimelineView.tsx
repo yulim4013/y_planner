@@ -377,6 +377,63 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
+  // 이벤트 겹침 감지 → 컬럼 배치 (Apple Calendar 스타일)
+  const eventColumns = (() => {
+    const cols = new Map<string, { col: number; total: number }>()
+    if (eventGroups.length <= 1) {
+      eventGroups.forEach((g) => cols.set(g.event.id, { col: 0, total: 1 }))
+      return cols
+    }
+    // 시작시간 순 정렬된 이벤트 목록
+    const sorted = eventGroups.map((g) => ({
+      id: g.event.id,
+      start: timeToMinutes(g.event.startTime!),
+      end: g.event.endTime ? timeToMinutes(g.event.endTime) : timeToMinutes(g.event.startTime!) + 60,
+    })).sort((a, b) => a.start - b.start || a.end - b.end)
+
+    // 겹치는 그룹 찾기
+    const groups: typeof sorted[] = []
+    let currentGroup: typeof sorted = []
+    let groupEnd = 0
+    for (const ev of sorted) {
+      if (currentGroup.length === 0 || ev.start < groupEnd) {
+        currentGroup.push(ev)
+        groupEnd = Math.max(groupEnd, ev.end)
+      } else {
+        groups.push(currentGroup)
+        currentGroup = [ev]
+        groupEnd = ev.end
+      }
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup)
+
+    // 각 그룹 내에서 컬럼 할당
+    for (const group of groups) {
+      const colEnds: number[] = [] // 각 컬럼의 종료시간
+      for (const ev of group) {
+        let placed = false
+        for (let c = 0; c < colEnds.length; c++) {
+          if (colEnds[c] <= ev.start) {
+            colEnds[c] = ev.end
+            cols.set(ev.id, { col: c, total: 0 })
+            placed = true
+            break
+          }
+        }
+        if (!placed) {
+          cols.set(ev.id, { col: colEnds.length, total: 0 })
+          colEnds.push(ev.end)
+        }
+      }
+      const total = colEnds.length
+      for (const ev of group) {
+        const entry = cols.get(ev.id)!
+        entry.total = total
+      }
+    }
+    return cols
+  })()
+
   // Auto-scroll: 최초 마운트 시에만 실행
   const initialScrollDone = useRef(false)
   useEffect(() => {
@@ -701,6 +758,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
             const isActive = activeEventId === event.id
 
+            // 겹침 컬럼 계산
+            const colInfo = eventColumns.get(event.id) || { col: 0, total: 1 }
+            const colStyle = colInfo.total > 1
+              ? { left: `calc(66px + (100% - 74px) * ${colInfo.col} / ${colInfo.total})`, width: `calc((100% - 74px) / ${colInfo.total})`, right: 'auto' as const }
+              : {}
+
             return (
               <div
                 key={event.id}
@@ -710,6 +773,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   minHeight,
                   borderLeftColor: color,
                   background: `${color}22`,
+                  ...colStyle,
                   ...(isMoving ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                   ...(isResizing ? { zIndex: 100 } : {}),
                 }}
