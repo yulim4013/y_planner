@@ -195,6 +195,89 @@
   white-space: nowrap;
 }
 
+/* 월별 그리드 캘린더 */
+.diary-month-grid {
+  margin-bottom: 16px;
+}
+
+.diary-weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.diary-weekday {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  padding: 4px 0;
+}
+
+.diary-weekday.sun { color: #FF8A80; }
+.diary-weekday.sat { color: #64B5F6; }
+
+.diary-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.diary-cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.diary-cal-day:active {
+  background: var(--color-divider);
+}
+
+.diary-cal-day.other-month {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.diary-cal-day.today .diary-cal-num {
+  background: var(--color-primary-dark);
+  color: #fff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary-cal-day.selected {
+  background: var(--color-primary-light);
+}
+
+.diary-cal-day.sun .diary-cal-num { color: #FF8A80; }
+.diary-cal-day.sat .diary-cal-num { color: #64B5F6; }
+
+.diary-cal-num {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.diary-cal-mood {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.diary-entry-date-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
 /* 빈 상태 */
 .diary-empty-state {
   display: flex;

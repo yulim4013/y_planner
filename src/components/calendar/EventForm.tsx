@@ -31,6 +31,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
   const [isAllDay, setIsAllDay] = useState(false)
   const [location, setLocation] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [reminder, setReminder] = useState<string>('')
 
   useEffect(() => {
     if (editEvent) {
@@ -43,6 +44,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       setEndTime(editEvent.endTime || '')
       setIsAllDay(editEvent.isAllDay)
       setLocation(editEvent.location || '')
+      setReminder((editEvent as any).reminder || '')
     } else {
       resetForm()
     }
@@ -69,6 +71,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
     }
     setLocation('')
     setCategoryId(null)
+    setReminder('')
   }
 
   const handleSubmit = async () => {
@@ -84,6 +87,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       isAllDay,
       categoryId: categoryId || null,
       location: location.trim(),
+      reminder: reminder || null,
     }
 
     if (editEvent) {
@@ -207,6 +211,25 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
         </div>
 
         <CategoryPicker type="event" value={categoryId} onChange={setCategoryId} />
+
+        {!isAllDay && startTime && (
+          <div className="event-form-row">
+            <label className="event-form-label">미리 알림</label>
+            <select
+              className="event-form-date"
+              value={reminder}
+              onChange={(e) => setReminder(e.target.value)}
+            >
+              <option value="">없음</option>
+              <option value="0">시작 시간</option>
+              <option value="5">5분 전</option>
+              <option value="10">10분 전</option>
+              <option value="15">15분 전</option>
+              <option value="30">30분 전</option>
+              <option value="60">1시간 전</option>
+            </select>
+          </div>
+        )}
 
         <textarea
           className="event-form-textarea"

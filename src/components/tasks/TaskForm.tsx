@@ -21,6 +21,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [subItems, setSubItems] = useState<SubItem[]>([])
   const [newSubItem, setNewSubItem] = useState('')
+  const [reminder, setReminder] = useState<string>('')
 
   useEffect(() => {
     if (editTask) {
@@ -30,6 +31,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       setCategoryId(editTask.categoryId || null)
       setDueDate(editTask.dueDate ? formatDateInput(editTask.dueDate.toDate()) : '')
       setDueTime(editTask.dueTime || '')
+      setReminder((editTask as any).reminder || '')
       setSubItems(editTask.subItems || [])
     } else {
       resetForm()
@@ -43,6 +45,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     setCategoryId(null)
     setDueDate('')
     setDueTime('')
+    setReminder('')
     setSubItems([])
     setNewSubItem('')
   }
@@ -92,6 +95,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : null,
       dueTime: dueTime || null,
       categoryId: categoryId || null,
+      reminder: reminder || null,
       subItems: plainSubItems,
     }
 
@@ -171,6 +175,25 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
             onChange={(e) => setDueTime(e.target.value)}
           />
         </div>
+
+        {dueTime && (
+          <div className="task-form-row">
+            <label className="task-form-label">미리 알림</label>
+            <select
+              className="task-form-date"
+              value={reminder}
+              onChange={(e) => setReminder(e.target.value)}
+            >
+              <option value="">없음</option>
+              <option value="0">시작 시간</option>
+              <option value="5">5분 전</option>
+              <option value="10">10분 전</option>
+              <option value="15">15분 전</option>
+              <option value="30">30분 전</option>
+              <option value="60">1시간 전</option>
+            </select>
+          </div>
+        )}
 
         <div className="task-form-section">
           <label className="task-form-label">체크리스트</label>

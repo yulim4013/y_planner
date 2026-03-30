@@ -3,7 +3,6 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { toggleTaskComplete, toggleSubItem, deleteTask } from '../../services/taskService'
 import { deleteEvent } from '../../services/eventService'
-import { PRIORITY_LABELS } from '../../utils/constants'
 import type { CalendarEvent, Task, Category } from '../../types'
 import './DailyView.css'
 
@@ -277,7 +276,17 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
             <span className="daily-section-label">할 일</span>
             <span className="daily-section-count">{tasks.filter((t) => t.isCompleted).length}/{tasks.length}</span>
           </div>
-          {tasks.map((task) => {
+          {[...tasks].sort((a, b) => {
+            const aTime = a.dueTime || ''
+            const bTime = b.dueTime || ''
+            // 시간 없는 항목 먼저
+            if (!aTime && bTime) return -1
+            if (aTime && !bTime) return 1
+            // 둘 다 시간 없으면 가나다순
+            if (!aTime && !bTime) return a.title.localeCompare(b.title, 'ko')
+            // 둘 다 시간 있으면 시간순
+            return aTime.localeCompare(bTime)
+          }).map((task) => {
             const subItems = task.subItems || []
             const displayTime = task.isCompleted && task.completedTime ? formatTimeStr(task.completedTime) : task.dueTime ? formatTimeStr(task.dueTime) : null
             const isSwiped = swipedId === task.id
@@ -317,7 +326,6 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                     </button>
                     <span className="daily-task-title">{task.title}</span>
                     {taskCat && <span className="daily-cat-badge" style={{ background: `${taskCat.color}33`, color: taskCat.color }}>{taskCat.name}</span>}
-                    <span className={`daily-task-priority priority-${task.priority}`}>{PRIORITY_LABELS[task.priority]}</span>
                     {displayTime && <span className={`daily-task-time ${task.isCompleted ? 'completed' : ''}`}>{displayTime}</span>}
                   </div>
                   {subItems.length > 0 && (

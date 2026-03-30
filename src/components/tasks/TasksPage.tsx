@@ -4,7 +4,7 @@ import GlassCard from '../common/GlassCard'
 import TaskItem from './TaskItem'
 import TaskForm from './TaskForm'
 import { subscribeTasks } from '../../services/taskService'
-import { subscribeCategoriesByType } from '../../services/categoryService'
+import { subscribeCategories } from '../../services/categoryService'
 import type { Task, Category } from '../../types'
 import './TasksPage.css'
 
@@ -23,7 +23,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     const unsub = subscribeTasks(setTasks)
-    const unsubCat = subscribeCategoriesByType('task', setCategories)
+    const unsubCat = subscribeCategories(setCategories)
     return () => { unsub(); unsubCat() }
   }, [])
 

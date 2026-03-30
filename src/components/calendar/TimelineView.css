@@ -560,3 +560,78 @@
     background: rgba(255, 255, 255, 0.5);
   }
 }
+
+/* 수면 시간 수정 모달 */
+.tl-sleep-edit-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-bg);
+  border-radius: 16px;
+  padding: 20px 24px;
+  z-index: 1000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  min-width: 280px;
+}
+
+.tl-sleep-edit-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.tl-sleep-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tl-sleep-edit-row label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.tl-sleep-edit-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.tl-sleep-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.tl-sleep-edit-cancel {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.tl-sleep-edit-save {
+  padding: 8px 20px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}

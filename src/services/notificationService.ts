@@ -1,7 +1,7 @@
-// 브라우저 알림(Notification API) 기반 루틴 알림 서비스
+// 브라우저 알림(Notification API) 기반 알림 서비스
 // FCM 없이 클라이언트 사이드에서 동작. 앱이 열려 있을 때만 작동.
 
-import type { Routine } from '../types'
+import type { Routine, CalendarEvent, Task } from '../types'
 
 let scheduledTimers: Map<string, number> = new Map()
 
@@ -98,4 +98,75 @@ export function scheduleAllRoutineNotifications(routines: Routine[]) {
 export function clearAllScheduledNotifications() {
   scheduledTimers.forEach((timerId) => window.clearTimeout(timerId))
   scheduledTimers.clear()
+}
+
+// ── 일정/태스크 미리알림 ──
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+function scheduleItemReminder(key: string, title: string, body: string, targetTime: Date) {
+  const diff = targetTime.getTime() - Date.now()
+  if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return
+
+  const timerId = window.setTimeout(() => {
+    showNotification(title, body)
+    scheduledTimers.delete(key)
+  }, diff)
+  scheduledTimers.set(key, timerId)
+}
+
+export function scheduleEventNotifications(events: CalendarEvent[]) {
+  if (Notification.permission !== 'granted') return
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  events.forEach((event) => {
+    const reminder = (event as any).reminder
+    if (!reminder && reminder !== '0') return
+    if (event.isAllDay || !event.startTime) return
+
+    const reminderMin = parseInt(reminder) || 0
+    const eventMin = timeToMinutes(event.startTime)
+    const targetMin = eventMin - reminderMin
+
+    const targetDate = new Date(today)
+    targetDate.setHours(0, targetMin, 0, 0)
+
+    const key = `event-${event.id}`
+    if (scheduledTimers.has(key)) return
+
+    const displayTitle = event.title === '(제목 없음)' ? '일정' : event.title
+    const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
+    scheduleItemReminder(key, `📅 ${displayTitle}`, body, targetDate)
+  })
+}
+
+export function scheduleTaskNotifications(tasks: Task[]) {
+  if (Notification.permission !== 'granted') return
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  tasks.forEach((task) => {
+    const reminder = (task as any).reminder
+    if (!reminder && reminder !== '0') return
+    if (!task.dueTime || task.isCompleted) return
+
+    const reminderMin = parseInt(reminder) || 0
+    const taskMin = timeToMinutes(task.dueTime)
+    const targetMin = taskMin - reminderMin
+
+    const targetDate = new Date(today)
+    targetDate.setHours(0, targetMin, 0, 0)
+
+    const key = `task-${task.id}`
+    if (scheduledTimers.has(key)) return
+
+    const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
+    scheduleItemReminder(key, `✅ ${task.title}`, body, targetDate)
+  })
 }

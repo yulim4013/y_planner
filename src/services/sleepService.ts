@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   deleteDoc,
+  updateDoc,
   onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -68,6 +69,13 @@ export async function deleteSleepRecord(id: string) {
   const ref = getSleepRef()
   if (!ref) return
   await deleteDoc(doc(ref, id))
+}
+
+export async function updateSleepRecord(id: string, time: string) {
+  const ref = getSleepRef()
+  if (!ref) return
+  const [h, m] = time.split(':').map(Number)
+  await updateDoc(doc(ref, id), { time, hour: h, minute: m })
 }
 
 export function calculateSleepDuration(

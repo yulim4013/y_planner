@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  addMonths, subMonths, addWeeks, subWeeks,
+  addMonths, subMonths, addWeeks, subWeeks, addDays, subDays,
   isSameDay, startOfWeek, endOfWeek, eachDayOfInterval,
   format, isToday,
 } from 'date-fns'
@@ -444,6 +444,8 @@ export default function CalendarPage() {
               onEditEvent={handleEditEvent}
               onEditTask={handleEditTask}
               onAddEventAtTime={handleAddEventAtTime}
+              onSwipePrev={() => setSelectedDate((d) => subDays(d, 1))}
+              onSwipeNext={() => setSelectedDate((d) => addDays(d, 1))}
             />
           </div>
         </div>

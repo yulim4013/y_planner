@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { toggleTaskComplete, deleteTask, updateTask, addTask } from '../../services/taskService'
 import { deleteEvent, updateEvent, addEvent } from '../../services/eventService'
 import { toggleRoutineComplete } from '../../services/routineService'
-import { deleteSleepRecord } from '../../services/sleepService'
+import { deleteSleepRecord, updateSleepRecord } from '../../services/sleepService'
 import type { CalendarEvent, Task, Category, Routine, SleepRecord } from '../../types'
 import './TimelineView.css'
 
@@ -24,6 +24,8 @@ interface TimelineViewProps {
   onEditTask: (task: Task) => void
   onMoveItem?: (type: 'task' | 'event', id: string) => void
   onAddEventAtTime?: (startTime: string) => void
+  onSwipePrev?: () => void
+  onSwipeNext?: () => void
 }
 
 interface ActionBarState {
@@ -74,7 +76,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -84,6 +86,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   // Action bar
   const [actionBar, setActionBar] = useState<ActionBarState | null>(null)
   const closeActionBar = useCallback(() => setActionBar(null), [])
+
+  // Sleep edit modal
+  const [sleepEditOpen, setSleepEditOpen] = useState(false)
+  const [sleepEditSleepTime, setSleepEditSleepTime] = useState('')
+  const [sleepEditWakeTime, setSleepEditWakeTime] = useState('')
+  const [sleepEditIds, setSleepEditIds] = useState<{ sleepId: string; wakeId: string }>({ sleepId: '', wakeId: '' })
 
   // Drag state
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -457,9 +465,28 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     } else if (actionBar.type === 'task') {
       const t = tasks.find((t) => t.id === actionBar.id)
       if (t) onEditTask(t)
+    } else if (actionBar.type === 'sleep') {
+      // Open sleep edit modal
+      const sr = sleepInfo?.sleepRecord
+      const wr = sleepInfo?.wakeRecord
+      if (sr && wr) {
+        setSleepEditSleepTime(sr.time)
+        setSleepEditWakeTime(wr.time)
+        setSleepEditIds({ sleepId: sr.id, wakeId: wr.id })
+        setSleepEditOpen(true)
+      }
     }
-    // sleep: 수정 폼 없으므로 무시
     setActionBar(null)
+  }
+
+  const handleSleepEditSave = async () => {
+    if (sleepEditIds.sleepId && sleepEditSleepTime) {
+      await updateSleepRecord(sleepEditIds.sleepId, sleepEditSleepTime)
+    }
+    if (sleepEditIds.wakeId && sleepEditWakeTime) {
+      await updateSleepRecord(sleepEditIds.wakeId, sleepEditWakeTime)
+    }
+    setSleepEditOpen(false)
   }
 
   const handleDelete = async () => {
@@ -634,6 +661,54 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     }
   }
 
+  // ── 타임라인 좌우 스와이프로 일자 이동 ──
+  const tlSwipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
+  const [tlSwipeOffset, setTlSwipeOffset] = useState(0)
+  const [tlSwipeAnimating, setTlSwipeAnimating] = useState(false)
+
+  const handleTlSwipeStart = useCallback((e: React.TouchEvent) => {
+    // 드래그/롱프레스 중에는 스와이프 방지
+    if (draggedId || gridLpRef.current || lpTimerRef.current) return
+    tlSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
+  }, [draggedId])
+
+  const handleTlSwipeMove = useCallback((e: React.TouchEvent) => {
+    if (!tlSwipeRef.current) return
+    const dx = e.touches[0].clientX - tlSwipeRef.current.startX
+    const dy = e.touches[0].clientY - tlSwipeRef.current.startY
+    if (!tlSwipeRef.current.decided && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
+      tlSwipeRef.current.decided = true
+      tlSwipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5
+    }
+    if (tlSwipeRef.current.decided && tlSwipeRef.current.isHorizontal) {
+      setTlSwipeOffset(dx * 0.4) // 저항감 있는 따라가기
+    }
+  }, [])
+
+  const handleTlSwipeEnd = useCallback((e: React.TouchEvent) => {
+    if (!tlSwipeRef.current) return
+    const dx = e.changedTouches[0].clientX - tlSwipeRef.current.startX
+    const isHoriz = tlSwipeRef.current.isHorizontal
+    tlSwipeRef.current = null
+
+    if (isHoriz && Math.abs(dx) > 80) {
+      setTlSwipeAnimating(true)
+      setTlSwipeOffset(dx > 0 ? window.innerWidth * 0.3 : -window.innerWidth * 0.3)
+      setTimeout(() => {
+        if (dx > 0) onSwipePrev?.()
+        else onSwipeNext?.()
+        setTlSwipeOffset(0)
+        setTlSwipeAnimating(false)
+      }, 250)
+    } else if (isHoriz) {
+      setTlSwipeAnimating(true)
+      setTlSwipeOffset(0)
+      setTimeout(() => setTlSwipeAnimating(false), 200)
+    } else {
+      setTlSwipeOffset(0)
+    }
+  }, [onSwipePrev, onSwipeNext])
+
   const hours = Array.from({ length: 24 }, (_, i) => i)
   const hasContent = events.length > 0 || tasks.length > 0 || routines.length > 0 || sleepBlocks.length > 0
 
@@ -692,10 +767,20 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       )}
 
       {/* 타임라인 그리드 */}
-      <div className="tl-grid" ref={gridRef}>
+      <div
+        className="tl-grid"
+        ref={gridRef}
+        onTouchStart={handleTlSwipeStart}
+        onTouchMove={handleTlSwipeMove}
+        onTouchEnd={handleTlSwipeEnd}
+      >
         <div
           className="tl-grid-inner"
-          style={{ height: 24 * HOUR_HEIGHT }}
+          style={{
+            height: 24 * HOUR_HEIGHT,
+            transform: tlSwipeOffset ? `translateX(${tlSwipeOffset}px)` : undefined,
+            transition: tlSwipeAnimating ? 'transform 0.25s ease-out' : 'none',
+          }}
           onClick={handleGridClick}
           onDoubleClick={handleGridDoubleClick}
           onTouchStart={handleGridTouchStart}
@@ -973,7 +1058,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
           >
-            {actionBar.type !== 'sleep' && <button className="action-bar-btn" onClick={handleEdit}>수정</button>}
+            <button className="action-bar-btn" onClick={handleEdit}>수정</button>
             {actionBar.type !== 'sleep' && <button className="action-bar-btn" onClick={handleDuplicate}>복제</button>}
             <button className="action-bar-btn action-delete" onClick={handleDelete}>삭제</button>
           </div>
@@ -985,6 +1070,28 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         <div className="tl-drag-time-badge">
           {dragTimeLabel}
         </div>
+      )}
+
+      {/* 수면 시간 수정 모달 */}
+      {sleepEditOpen && (
+        <>
+          <div className="tl-action-overlay" onClick={() => setSleepEditOpen(false)} />
+          <div className="tl-sleep-edit-modal">
+            <div className="tl-sleep-edit-title">수면 시간 수정</div>
+            <div className="tl-sleep-edit-row">
+              <label>취침</label>
+              <input type="time" value={sleepEditSleepTime} onChange={(e) => setSleepEditSleepTime(e.target.value)} />
+            </div>
+            <div className="tl-sleep-edit-row">
+              <label>기상</label>
+              <input type="time" value={sleepEditWakeTime} onChange={(e) => setSleepEditWakeTime(e.target.value)} />
+            </div>
+            <div className="tl-sleep-edit-actions">
+              <button className="tl-sleep-edit-cancel" onClick={() => setSleepEditOpen(false)}>취소</button>
+              <button className="tl-sleep-edit-save" onClick={handleSleepEditSave}>저장</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

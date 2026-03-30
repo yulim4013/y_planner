@@ -11,6 +11,7 @@ import {
 } from '../../services/routineService'
 import {
   requestNotificationPermission, scheduleAllRoutineNotifications,
+  scheduleEventNotifications, scheduleTaskNotifications,
   getNotificationPermission,
 } from '../../services/notificationService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
@@ -19,6 +20,10 @@ import { subscribeTransactionsByMonth } from '../../services/budgetService'
 import { getBudgetCategory } from '../../utils/constants'
 import EventForm from '../calendar/EventForm'
 import TaskForm from '../tasks/TaskForm'
+import TransactionForm from '../more/TransactionForm'
+import { deleteTransaction } from '../../services/budgetService'
+import { deleteEvent } from '../../services/eventService'
+import { deleteTask } from '../../services/taskService'
 import { useUIStore } from '../../store/uiStore'
 import { formatNumber } from '../../utils/currencyUtils'
 import { format } from 'date-fns'
@@ -104,6 +109,8 @@ export default function DashboardPage() {
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
+  const [txnFormOpen, setTxnFormOpen] = useState(false)
+  const [editTxn, setEditTxn] = useState<Transaction | null>(null)
   const [showRoutineForm, setShowRoutineForm] = useState(false)
   const [showTemplateList, setShowTemplateList] = useState(false)
   const [selectedIconId, setSelectedIconId] = useState(ROUTINE_ICONS[0].id)
@@ -113,6 +120,48 @@ export default function DashboardPage() {
   const [endDate, setEndDate] = useState('2026-12-31')
   const [routineTime, setRoutineTime] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // ── 스와이프 삭제 ──
+  const [swipedId, setSwipedId] = useState<string | null>(null)
+  const [swipeX, setSwipeX] = useState(0)
+  const [swipeAnimating, setSwipeAnimating] = useState(false)
+  const swipeRef = useRef({ startX: 0, startY: 0, decided: false, isHorizontal: false, id: '' })
+
+  const handleSwipeTouchStart = (e: React.TouchEvent, id: string) => {
+    const touch = e.touches[0]
+    swipeRef.current = { startX: touch.clientX, startY: touch.clientY, decided: false, isHorizontal: false, id }
+    if (swipedId && swipedId !== id) { setSwipedId(null); setSwipeX(0) }
+  }
+
+  const handleSwipeTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - swipeRef.current.startX
+    const dy = e.touches[0].clientY - swipeRef.current.startY
+    if (!swipeRef.current.decided && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      swipeRef.current.decided = true
+      swipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy)
+    }
+    if (swipeRef.current.isHorizontal) {
+      setSwipedId(swipeRef.current.id)
+      setSwipeX(Math.min(0, Math.max(-100, dx)))
+    }
+  }
+
+  const handleSwipeTouchEnd = () => {
+    if (swipeRef.current.isHorizontal) {
+      setSwipeAnimating(true)
+      if (swipeX < -50) setSwipeX(-80)
+      else { setSwipeX(0); setSwipedId(null) }
+      setTimeout(() => setSwipeAnimating(false), 200)
+    }
+  }
+
+  const handleSwipeDelete = async (type: 'routine' | 'event' | 'task' | 'expense', id: string) => {
+    if (type === 'routine') { setRoutines((prev) => prev.filter((r) => r.id !== id)); deleteRoutine(id) }
+    else if (type === 'event') deleteEvent(id)
+    else if (type === 'task') deleteTask(id)
+    else if (type === 'expense') deleteTransaction(id)
+    setSwipedId(null); setSwipeX(0)
+  }
 
   const currentMonthStr = format(today, 'yyyy-MM')
 
@@ -127,12 +176,18 @@ export default function DashboardPage() {
     return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns() }
   }, [todayStr, currentMonthStr, routineDateStr])
 
-  // 루틴 알림 스케줄링
+  // 알림 스케줄링 (루틴 + 일정 + 태스크)
   useEffect(() => {
-    if (routines.length > 0) {
-      scheduleAllRoutineNotifications(routines)
-    }
+    if (routines.length > 0) scheduleAllRoutineNotifications(routines)
   }, [routines])
+
+  useEffect(() => {
+    if (todayEvents.length > 0) scheduleEventNotifications(todayEvents)
+  }, [events])
+
+  useEffect(() => {
+    if (todayTasks.length > 0) scheduleTaskNotifications(todayTasks)
+  }, [tasks])
 
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
@@ -414,11 +469,22 @@ export default function DashboardPage() {
             {routines.map((routine, idx) => {
               const isDragging = dragRoutineIdx === idx
               const dragOffset = isDragging ? dragRoutineDy : 0
+              const isSwiped = swipedId === `routine-${routine.id}`
               return (
+              <div key={routine.id} className="dash-swipe-wrapper">
+                <div className="dash-swipe-delete-btn" onClick={() => handleSwipeDelete('routine', routine.id)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  <span>삭제</span>
+                </div>
               <div
-                key={routine.id}
                 className={`routine-item ${isDragging ? 'routine-dragging' : ''}`}
-                style={isDragging ? { transform: `translateY(${dragOffset}px)`, zIndex: 10 } : undefined}
+                style={{
+                  ...(isDragging ? { transform: `translateY(${dragOffset}px)`, zIndex: 10 } : {}),
+                  ...(isSwiped ? { transform: `translateX(${swipeX}px)`, transition: swipeAnimating ? 'transform 0.2s ease-out' : 'none' } : {}),
+                }}
+                onTouchStart={(e) => handleSwipeTouchStart(e, `routine-${routine.id}`)}
+                onTouchMove={handleSwipeTouchMove}
+                onTouchEnd={handleSwipeTouchEnd}
               >
                 {routine.iconId === 'water' && routine.targetMl ? (
                   /* 물 마시기 - 인라인 바 UI */
@@ -472,7 +538,6 @@ export default function DashboardPage() {
                           <line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
                         </svg>
                       </div>
-                      <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                     </div>
                   </div>
                 ) : (
@@ -515,9 +580,9 @@ export default function DashboardPage() {
                         <line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
                       </svg>
                     </div>
-                    <button className="routine-delete" onClick={() => { setRoutines((prev) => prev.filter((r) => r.id !== routine.id)); deleteRoutine(routine.id) }}>×</button>
                   </>
                 )}
+              </div>
               </div>
             )})}
           </div>
@@ -661,8 +726,21 @@ export default function DashboardPage() {
               {todayEvents.map((event) => {
                 const evCat = event.categoryId ? categories.find((c) => c.id === event.categoryId) : null
                 const isNoTitle = !event.title || event.title === '(제목 없음)'
+                const isSwiped = swipedId === `event-${event.id}`
                 return (
-                  <div key={event.id} className="dash-event-item" onClick={() => { setEditEvent(event); setEventFormOpen(true) }}>
+                  <div key={event.id} className="dash-swipe-wrapper">
+                    <div className="dash-swipe-delete-btn" onClick={() => handleSwipeDelete('event', event.id)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                      <span>삭제</span>
+                    </div>
+                  <div
+                    className="dash-event-item"
+                    onClick={() => { setEditEvent(event); setEventFormOpen(true) }}
+                    style={isSwiped ? { transform: `translateX(${swipeX}px)`, transition: swipeAnimating ? 'transform 0.2s ease-out' : 'none' } : undefined}
+                    onTouchStart={(e) => handleSwipeTouchStart(e, `event-${event.id}`)}
+                    onTouchMove={handleSwipeTouchMove}
+                    onTouchEnd={handleSwipeTouchEnd}
+                  >
                     <div className="dash-ev-bar" style={evCat ? { background: evCat.color } : {}} />
                     <div className="dash-ev-info">
                       {evCat && <span className="dash-ev-category" style={{ color: evCat.color }}>{evCat.icon} {evCat.name}</span>}
@@ -676,6 +754,7 @@ export default function DashboardPage() {
                         {event.location ? ` · ${event.location}` : ''}
                       </span>
                     </div>
+                  </div>
                   </div>
                 )
               })}
@@ -706,8 +785,22 @@ export default function DashboardPage() {
             <p className="dash-empty">등록된 할 일이 없습니다</p>
           ) : (
             <div className="dash-task-list">
-              {todayTasks.map((task) => (
-                <div key={task.id} className="dash-task-item" onClick={() => { setEditTask(task); setTaskFormOpen(true) }}>
+              {todayTasks.map((task) => {
+                const isSwiped = swipedId === `task-${task.id}`
+                return (
+                <div key={task.id} className="dash-swipe-wrapper">
+                  <div className="dash-swipe-delete-btn" onClick={() => handleSwipeDelete('task', task.id)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                    <span>삭제</span>
+                  </div>
+                <div
+                  className="dash-task-item"
+                  onClick={() => { setEditTask(task); setTaskFormOpen(true) }}
+                  style={isSwiped ? { transform: `translateX(${swipeX}px)`, transition: swipeAnimating ? 'transform 0.2s ease-out' : 'none' } : undefined}
+                  onTouchStart={(e) => handleSwipeTouchStart(e, `task-${task.id}`)}
+                  onTouchMove={handleSwipeTouchMove}
+                  onTouchEnd={handleSwipeTouchEnd}
+                >
                   <button
                     className={`dash-task-check ${task.isCompleted ? 'done' : ''}`}
                     onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
@@ -723,7 +816,8 @@ export default function DashboardPage() {
                     <span className="dash-task-time">{formatTimeKorean(task.dueTime)}</span>
                   )}
                 </div>
-              ))}
+                </div>
+              )})}
             </div>
           )}
         </div>
@@ -765,8 +859,21 @@ export default function DashboardPage() {
                   </div>
                   {todayExpenses.map((tx) => {
                     const cat = getBudgetCategory(tx.category)
+                    const isSwiped = swipedId === `txn-${tx.id}`
                     return (
-                      <div key={tx.id} className="dash-expense-item">
+                      <div key={tx.id} className="dash-swipe-wrapper">
+                        <div className="dash-swipe-delete-btn" onClick={() => handleSwipeDelete('expense', tx.id)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                          <span>삭제</span>
+                        </div>
+                      <div
+                        className="dash-expense-item"
+                        onClick={() => { setEditTxn(tx); setTxnFormOpen(true) }}
+                        style={isSwiped ? { transform: `translateX(${swipeX}px)`, transition: swipeAnimating ? 'transform 0.2s ease-out' : 'none', cursor: 'pointer' } : { cursor: 'pointer' }}
+                        onTouchStart={(e) => handleSwipeTouchStart(e, `txn-${tx.id}`)}
+                        onTouchMove={handleSwipeTouchMove}
+                        onTouchEnd={handleSwipeTouchEnd}
+                      >
                         <span className="dash-expense-icon" style={{ background: cat?.color || '#eee' }}>
                           {cat?.icon || '📦'}
                         </span>
@@ -775,6 +882,7 @@ export default function DashboardPage() {
                           {tx.memo && <span className="dash-expense-category">{tx.category}{tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}</span>}
                         </span>
                         <span className="dash-expense-amount">-{formatNumber(tx.amount)}원</span>
+                      </div>
                       </div>
                     )
                   })}
@@ -796,6 +904,13 @@ export default function DashboardPage() {
         isOpen={taskFormOpen}
         onClose={() => { setTaskFormOpen(false); setEditTask(null) }}
         editTask={editTask}
+      />
+
+      <TransactionForm
+        isOpen={txnFormOpen}
+        onClose={() => { setTxnFormOpen(false); setEditTxn(null) }}
+        editTxn={editTxn}
+        defaultDate={today}
       />
     </div>
   )

@@ -148,8 +148,8 @@ img {
 }
 
 .page {
-  padding: var(--space-base);
-  padding-top: calc(var(--safe-area-top) + var(--space-base));
+  padding: var(--space-xl);
+  padding-top: calc(var(--safe-area-top) + var(--space-xl));
   padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--space-lg));
   min-height: 100dvh;
 }
