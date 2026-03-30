@@ -125,11 +125,10 @@ export function scheduleEventNotifications(events: CalendarEvent[]) {
   today.setHours(0, 0, 0, 0)
 
   events.forEach((event) => {
-    const reminder = (event as any).reminder
-    if (!reminder && reminder !== '0') return
+    if (event.reminder == null) return
     if (event.isAllDay || !event.startTime) return
 
-    const reminderMin = parseInt(reminder) || 0
+    const reminderMin = event.reminder
     const eventMin = timeToMinutes(event.startTime)
     const targetMin = eventMin - reminderMin
 
@@ -152,11 +151,10 @@ export function scheduleTaskNotifications(tasks: Task[]) {
   today.setHours(0, 0, 0, 0)
 
   tasks.forEach((task) => {
-    const reminder = (task as any).reminder
-    if (!reminder && reminder !== '0') return
+    if (task.reminder == null) return
     if (!task.dueTime || task.isCompleted) return
 
-    const reminderMin = parseInt(reminder) || 0
+    const reminderMin = task.reminder
     const taskMin = timeToMinutes(task.dueTime)
     const targetMin = taskMin - reminderMin
 

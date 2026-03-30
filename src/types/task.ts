@@ -32,6 +32,7 @@ export interface Task {
   isCompleted: boolean
   completedAt: Timestamp | null
   completedTime: string | null     // 'HH:mm' - 실제 완료된 시간
+  reminder: number | null
   createdAt: Timestamp
   updatedAt: Timestamp
 }

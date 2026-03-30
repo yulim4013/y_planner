@@ -176,19 +176,6 @@ export default function DashboardPage() {
     return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns() }
   }, [todayStr, currentMonthStr, routineDateStr])
 
-  // 알림 스케줄링 (루틴 + 일정 + 태스크)
-  useEffect(() => {
-    if (routines.length > 0) scheduleAllRoutineNotifications(routines)
-  }, [routines])
-
-  useEffect(() => {
-    if (todayEvents.length > 0) scheduleEventNotifications(todayEvents)
-  }, [events])
-
-  useEffect(() => {
-    if (todayTasks.length > 0) scheduleTaskNotifications(todayTasks)
-  }, [tasks])
-
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
@@ -213,6 +200,19 @@ export default function DashboardPage() {
 
   // Routine progress
   const routineCompletedCount = routines.filter((r) => r.isCompleted).length
+
+  // 알림 스케줄링 (루틴 + 일정 + 태스크)
+  useEffect(() => {
+    if (routines.length > 0) scheduleAllRoutineNotifications(routines)
+  }, [routines])
+
+  useEffect(() => {
+    if (todayEvents.length > 0) scheduleEventNotifications(todayEvents)
+  }, [events])
+
+  useEffect(() => {
+    if (todayTasks.length > 0) scheduleTaskNotifications(todayTasks)
+  }, [tasks])
 
   // 일정 카테고리별 시간 통계 (카테고리 ID 기반 매칭)
   const categoryTimeStats = (() => {

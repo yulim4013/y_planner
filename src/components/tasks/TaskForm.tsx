@@ -95,7 +95,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : null,
       dueTime: dueTime || null,
       categoryId: categoryId || null,
-      reminder: reminder || null,
+      reminder: reminder ? parseInt(reminder, 10) : null,
       subItems: plainSubItems,
     }
 

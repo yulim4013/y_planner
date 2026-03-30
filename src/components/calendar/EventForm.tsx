@@ -87,7 +87,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       isAllDay,
       categoryId: categoryId || null,
       location: location.trim(),
-      reminder: reminder || null,
+      reminder: reminder ? parseInt(reminder, 10) : null,
     }
 
     if (editEvent) {

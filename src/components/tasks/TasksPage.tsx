@@ -15,8 +15,14 @@ const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [filter, setFilter] = useState<FilterType>(() => (localStorage.getItem('taskFilter') as FilterType) || 'all')
-  const [sort, setSort] = useState<SortType>(() => (localStorage.getItem('taskSort') as SortType) || 'date')
+  const [filter, setFilter] = useState<FilterType>(() => {
+    const saved = localStorage.getItem('taskFilter')
+    return saved && ['all', 'todo', 'done', 'overdue'].includes(saved) ? saved as FilterType : 'all'
+  })
+  const [sort, setSort] = useState<SortType>(() => {
+    const saved = localStorage.getItem('taskSort')
+    return saved && ['priority', 'date', 'category'].includes(saved) ? saved as SortType : 'date'
+  })
   const [formOpen, setFormOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
