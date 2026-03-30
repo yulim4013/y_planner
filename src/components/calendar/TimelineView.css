@@ -148,18 +148,21 @@
   margin-left: auto;
 }
 
-.tl-event-time {
-  display: block;
-  font-size: 10px;
-  color: var(--color-text-tertiary);
+.tl-event-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 0 10px 4px;
 }
 
-.tl-event-location {
-  display: block;
+.tl-event-time {
   font-size: 10px;
   color: var(--color-text-tertiary);
-  padding: 0 10px 4px;
+}
+
+.tl-event-location {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
 }
 
 /* 이벤트 내 태스크 */

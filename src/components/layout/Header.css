@@ -2,21 +2,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  margin-bottom: var(--space-md);
+  padding: 8px 14px;
+  margin-bottom: var(--space-sm);
   background: var(--color-bg);
-  border-radius: 16px;
-  box-shadow: var(--neu-convex);
+  border-radius: 12px;
+  box-shadow: var(--neu-convex-sm);
   position: sticky;
   top: 0;
   z-index: 50;
 }
 
 .header-title {
-  font-size: var(--font-size-2xl);
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-text);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .header-right {
@@ -26,9 +26,9 @@
 }
 
 .header-add-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   background: var(--color-bg);
   box-shadow: var(--neu-convex-sm);
   display: flex;
@@ -36,7 +36,7 @@
   justify-content: center;
   cursor: pointer;
   border: none;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 300;
   color: var(--color-primary);
   transition: all 0.15s ease;
@@ -49,18 +49,18 @@
 /* ==================== PC 데스크톱 ==================== */
 @media (min-width: 768px) {
   .app-header {
-    padding: 16px 24px;
-    margin-bottom: var(--space-lg);
+    padding: 10px 20px;
+    margin-bottom: var(--space-md);
   }
 
   .header-title {
-    font-size: var(--font-size-3xl);
+    font-size: 18px;
   }
 
   .header-add-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 24px;
+    width: 34px;
+    height: 34px;
+    font-size: 22px;
   }
 
   .header-add-btn:hover {

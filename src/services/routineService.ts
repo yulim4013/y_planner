@@ -6,7 +6,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   getDocs,
   Timestamp,
@@ -67,12 +66,12 @@ export function subscribeActiveTemplates(callback: (templates: RoutineTemplate[]
     return () => {}
   }
 
-  const q = query(ref, orderBy('order', 'asc'))
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(ref, (snapshot) => {
     const templates = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     })) as RoutineTemplate[]
+    templates.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     callback(templates)
   })
 }
@@ -86,14 +85,15 @@ export function subscribeRoutinesByDate(date: string, callback: (routines: Routi
     return () => {}
   }
 
-  const q = query(routinesRef, where('date', '==', date), orderBy('order', 'asc'))
+  // orderBy 없이 where만 사용 (composite index 불필요, order 필드 누락 문서 누락 방지)
+  const q = query(routinesRef, where('date', '==', date))
 
   // 템플릿에서 누락된 인스턴스 자동 생성 (한번만 실행)
   ;(async () => {
     try {
       const [routinesSnap, templatesSnap] = await Promise.all([
         getDocs(q),
-        getDocs(query(templatesRef, orderBy('order', 'asc'))),
+        getDocs(templatesRef),
       ])
       const existingTemplateIds = new Set(routinesSnap.docs.map((d) => d.data().templateId))
       const templates = templatesSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as RoutineTemplate[]
@@ -125,13 +125,17 @@ export function subscribeRoutinesByDate(date: string, callback: (routines: Routi
     }
   })()
 
-  // 실시간 리스너 (sync callback — 항상 최신 데이터 전달)
+  // 실시간 리스너 (sync callback — 클라이언트 정렬)
   return onSnapshot(q, (snapshot) => {
     const routines = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     })) as Routine[]
+    routines.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     callback(routines)
+  }, (error) => {
+    console.error('루틴 구독 에러:', error)
+    callback([])
   })
 }
 

@@ -4,8 +4,6 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  query,
-  orderBy,
   onSnapshot,
   Timestamp,
 } from 'firebase/firestore'
@@ -25,12 +23,13 @@ export function subscribeCategories(callback: (cats: Category[]) => void) {
     callback([])
     return () => {}
   }
-  const q = query(ref, orderBy('order', 'asc'))
-  return onSnapshot(q, (snapshot) => {
+  // orderBy 없이 전체 조회 후 클라이언트 정렬 (order 필드 누락 문서 누락 방지)
+  return onSnapshot(ref, (snapshot) => {
     const cats = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     })) as Category[]
+    cats.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     callback(cats)
   })
 }
@@ -41,13 +40,14 @@ export function subscribeCategoriesByType(type: 'task' | 'event' | 'expense', ca
     callback([])
     return () => {}
   }
-  const q = query(ref, orderBy('order', 'asc'))
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(ref, (snapshot) => {
     const all = snapshot.docs.map((d) => ({
       id: d.id,
       ...d.data(),
     })) as Category[]
-    callback(all.filter((c) => c.type === type || c.type === 'all'))
+    const filtered = all.filter((c) => c.type === type || c.type === 'all')
+    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    callback(filtered)
   })
 }
 

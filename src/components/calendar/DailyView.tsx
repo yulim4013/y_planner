@@ -246,17 +246,19 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                   <div className="event-info">
                     {eCat && <span className="event-category" style={{ color: eCat.color }}>{eCat.icon} {eCat.name}</span>}
                     {!isNoTitle && <span className="event-title">{event.title}</span>}
-                    <span className="event-time">
-                      {event.isAllDay ? '종일' : `${event.startTime || ''} ${event.endTime ? `~ ${event.endTime}` : ''}`}
-                    </span>
-                    {event.location && (
-                      <span
-                        className="event-location event-location-link"
-                        onClick={(e) => { e.stopPropagation(); window.open(`https://map.naver.com/v5/search/${encodeURIComponent(event.location!)}`, '_blank') }}
-                      >
-                        📍 {event.location}
+                    <div className="event-meta-row">
+                      {event.location && (
+                        <span
+                          className="event-location event-location-link"
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://map.naver.com/v5/search/${encodeURIComponent(event.location!)}`, '_blank') }}
+                        >
+                          📍 {event.location}
+                        </span>
+                      )}
+                      <span className="event-time">
+                        {event.isAllDay ? '종일' : `${event.startTime || ''} ${event.endTime ? `~ ${event.endTime}` : ''}`}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>

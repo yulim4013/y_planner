@@ -27,7 +27,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
   const [endDate, setEndDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
-  const [isAllDay, setIsAllDay] = useState(true)
+  const [isAllDay, setIsAllDay] = useState(false)
   const [location, setLocation] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
 
@@ -56,7 +56,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
     setEndDate(dateStr)
     setStartTime('')
     setEndTime('')
-    setIsAllDay(true)
+    setIsAllDay(false)
     setLocation('')
     setCategoryId(null)
   }
@@ -140,7 +140,17 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
               type="time"
               className="event-form-date"
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value
+                setStartTime(val)
+                // 종료 시간이 없거나 시작 시간보다 이전이면 자동으로 1시간 후로 설정
+                if (val) {
+                  const [h, m] = val.split(':').map(Number)
+                  const endH = Math.min(23, h + 1)
+                  const autoEnd = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+                  if (!endTime || endTime <= val) setEndTime(autoEnd)
+                }
+              }}
             />
           </div>
         )}
@@ -174,18 +184,16 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate }: E
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
-          {location.trim() && (
-            <button
-              type="button"
-              className="event-location-map-btn"
-              onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(location.trim())}`, '_blank')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            </button>
-          )}
+          <button
+            type="button"
+            className="event-location-map-btn"
+            onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(location.trim() || '장소 검색')}`, '_blank')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </button>
         </div>
 
         <CategoryPicker type="event" value={categoryId} onChange={setCategoryId} />

@@ -556,12 +556,14 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                       <span className="tl-event-title-right">{event.title}</span>
                     )}
                   </div>
-                  <span className="tl-event-time">
-                    {formatTimeKorean(displayStart)} ~ {displayEnd ? formatTimeKorean(displayEnd) : ''}
-                  </span>
-                  {event.location && (
-                    <span className="tl-event-location">📍 {event.location}</span>
-                  )}
+                  <div className="tl-event-meta-row">
+                    {event.location && (
+                      <span className="tl-event-location">📍 {event.location}</span>
+                    )}
+                    <span className="tl-event-time">
+                      {formatTimeKorean(displayStart)} ~ {displayEnd ? formatTimeKorean(displayEnd) : ''}
+                    </span>
+                  </div>
                 </div>
 
                 {groupTasks.length > 0 && (
