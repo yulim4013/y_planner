@@ -65,7 +65,7 @@ export default function CategoryPicker({ type, value, onChange }: CategoryPicker
     const result = await addCategory({
       name: newName.trim(),
       color: newColor,
-      icon: newIcon || '📌',
+      icon: newIcon || '',
       type,
       order: categories.length,
       eventCategoryId: type === 'task' ? newEventCategoryId : null,

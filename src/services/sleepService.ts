@@ -1,7 +1,5 @@
 import {
   collection,
-  query,
-  where,
   onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -29,21 +27,15 @@ export function subscribeSleepForDate(
   const [y, m, d] = date.split('-').map(Number)
   const prevDate = new Date(y, m - 1, d - 1)
   const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`
+  const targetDates = new Set([prevDateStr, date])
 
-  // composite index 불필요하도록 orderBy 제거, 클라이언트 정렬
-  const q = query(
-    ref,
-    where('date', 'in', [prevDateStr, date]),
-  )
-
-  return onSnapshot(q,
+  // 인덱스 의존 없이 전체 조회 후 클라이언트 필터링
+  return onSnapshot(ref,
     (snapshot) => {
-      const records = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as SleepRecord[]
-      // 클라이언트에서 timestamp 기준 정렬
-      records.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
+      const records = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() } as SleepRecord))
+        .filter((r) => targetDates.has(r.date))
+        .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
       callback(records)
     },
     (error) => {

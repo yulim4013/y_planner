@@ -692,7 +692,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
                 style={{
                   top,
-                  ...(cat ? { borderLeft: `3px solid ${cat.color}`, borderColor: cat.color } : {}),
                   ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                 }}
                 onClick={() => handleItemClick('task', task)}
@@ -710,7 +709,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   )}
                 </button>
                 <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-                {cat && <span className="tl-task-cat" style={{ background: cat.color }}>{cat.icon}</span>}
+                {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
               </div>
             )
           })}
