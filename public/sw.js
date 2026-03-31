@@ -28,38 +28,34 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// 웹 푸시 수신 (잠금화면 / 앱이 닫혀있을 때)
+// 웹 푸시 수신 (항상 알림 표시, tag로 중복 방지)
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
-  // 앱이 포커스 상태면 푸시 알림 스킵 (클라이언트에서 처리)
-  const showIfNotFocused = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    .then((clients) => {
-      const focused = clients.some((c) => c.visibilityState === 'visible')
-      if (focused) return // 앱이 열려있으면 중복 방지
+  const showNotification = Promise.resolve().then(() => {
+    let payload
+    try {
+      payload = event.data.json()
+    } catch {
+      return self.registration.showNotification('하루 플래너', { body: event.data.text() })
+    }
 
-      let payload
-      try {
-        payload = event.data.json()
-      } catch {
-        return self.registration.showNotification('하루 플래너', { body: event.data.text() })
-      }
+    const notification = payload.notification || {}
+    const data = payload.data || {}
+    const title = notification.title || data.title || '하루 플래너'
+    const body = notification.body || data.body || ''
 
-      const notification = payload.notification || {}
-      const data = payload.data || {}
-      const title = notification.title || data.title || '하루 플래너'
-      const body = notification.body || data.body || ''
-
-      return self.registration.showNotification(title, {
-        body,
-        icon: '/y_planner/icons/icon-192x192.jpg',
-        badge: '/y_planner/icons/icon-192x192.jpg',
-        data: data,
-        tag: data.tag || 'default',
-      })
+    // tag가 같으면 브라우저가 자동으로 이전 알림을 교체 (중복 방지)
+    return self.registration.showNotification(title, {
+      body,
+      icon: '/y_planner/icons/icon-192x192.jpg',
+      badge: '/y_planner/icons/icon-192x192.jpg',
+      data: data,
+      tag: data.tag || 'default',
     })
+  })
 
-  event.waitUntil(showIfNotFocused)
+  event.waitUntil(showNotification)
 })
 
 // 알림 클릭 시 앱 열기
