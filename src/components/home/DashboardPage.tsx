@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Header from '../layout/Header'
 import ProgressBar from '../common/ProgressBar'
 import { formatDate } from '../../utils/dateUtils'
@@ -12,6 +12,10 @@ import {
 import {
   requestNotificationPermission,
   getNotificationPermission,
+  scheduleAllRoutineNotifications,
+  scheduleEventNotifications,
+  scheduleTaskNotifications,
+  clearAllScheduledNotifications,
 } from '../../services/notificationService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
@@ -179,7 +183,7 @@ export default function DashboardPage() {
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
-  const todayTasks = tasks.filter((t) => {
+  const todayTasks = useMemo(() => tasks.filter((t) => {
     if (!t.dueDate) return !t.isCompleted
     const d = t.dueDate.toDate()
     if (d >= todayStart && d <= todayEnd) return true
@@ -188,11 +192,11 @@ export default function DashboardPage() {
       return matchesRepeatDate(d, today, t.repeat, t.repeatEndDate)
     }
     return false
-  })
+  }), [tasks])
   const taskCompletedCount = todayTasks.filter((t) => t.isCompleted).length
 
   // Today's events
-  const todayEvents = events.filter((e) => {
+  const todayEvents = useMemo(() => events.filter((e) => {
     const start = e.startDate.toDate(); start.setHours(0, 0, 0, 0)
     const end = e.endDate.toDate(); end.setHours(23, 59, 59, 999)
     if (today >= start && today <= end) return true
@@ -202,12 +206,27 @@ export default function DashboardPage() {
     if (!a.isAllDay && b.isAllDay) return 1
     if (a.startTime && b.startTime) return timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
     return 0
-  })
+  }), [events])
 
   // Routine progress
   const routineCompletedCount = routines.filter((r) => r.isCompleted).length
 
-  // 알림은 Cloud Function 서버 푸시로 처리 (클라이언트 setTimeout 제거)
+  // 클라이언트 알림 스케줄링 (Cloud Function 서버 푸시 보완)
+  useEffect(() => {
+    scheduleAllRoutineNotifications(routines)
+  }, [routines])
+
+  useEffect(() => {
+    scheduleEventNotifications(todayEvents)
+  }, [todayEvents])
+
+  useEffect(() => {
+    scheduleTaskNotifications(todayTasks)
+  }, [todayTasks])
+
+  useEffect(() => {
+    return () => clearAllScheduledNotifications()
+  }, [])
 
   // 일정 카테고리별 시간 통계 (카테고리 ID 기반 매칭)
   const categoryTimeStats = (() => {
