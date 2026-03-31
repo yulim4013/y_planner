@@ -1,5 +1,5 @@
 // Service Worker - 자동 업데이트 지원
-const CACHE_NAME = 'life-planner-v3'
+const CACHE_NAME = 'life-planner-v4'
 
 // 설치 시 즉시 활성화 (대기하지 않음)
 self.addEventListener('install', () => {
