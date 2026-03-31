@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
+import toast from 'react-hot-toast'
 import { auth, isFirebaseConfigured } from './config/firebase'
 import { useAuthStore } from './store/authStore'
 import { registerFCMToken, setupForegroundListener } from './services/fcmService'
@@ -67,12 +68,22 @@ export default function App() {
       if (user && !fcmInitialized.current) {
         fcmInitialized.current = true
         try {
-          if (Notification.permission === 'granted') {
-            await registerFCMToken(user.uid)
+          const perm = Notification.permission
+          toast(`🔔 알림 권한: ${perm}`, { duration: 3000 })
+
+          if (perm === 'granted') {
+            const token = await registerFCMToken(user.uid)
+            if (token) {
+              toast.success(`✅ 푸시 등록 완료`, { duration: 3000 })
+            } else {
+              toast.error(`❌ 푸시 토큰 실패`, { duration: 5000 })
+            }
+          } else {
+            toast(`알림 허용 필요 (현재: ${perm})`, { duration: 5000 })
           }
           setupForegroundListener()
-        } catch (err) {
-          console.warn('[FCM] init error:', err)
+        } catch (err: any) {
+          toast.error(`❌ FCM 에러: ${err?.message || err}`, { duration: 8000 })
         }
       }
     })
