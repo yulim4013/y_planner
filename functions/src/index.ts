@@ -207,13 +207,8 @@ export const sendScheduledNotifications = functions
         if (data.isCompleted || !data.time) return
         const [rh, rm] = data.time.split(':').map(Number)
         if (rh === kstHour && rm === kstMin) {
-          const icons: Record<string, string> = {
-            sunrise: '🌅', moon: '🌙', stretch: '🧘',
-            water: '💧', pill: '💊', journal: '📝',
-          }
-          const emoji = data.iconId ? icons[data.iconId] || '⏰' : '⏰'
           notifications.push({
-            title: `${emoji} ${data.title}`,
+            title: data.title,
             body: '루틴을 시작할 시간이에요!',
             tag: `routine-${doc.id}`,
           })
@@ -236,7 +231,7 @@ export const sendScheduledNotifications = functions
         if (alertMin === kstMinutes) {
           const title = data.title === '(제목 없음)' ? '일정' : data.title
           notifications.push({
-            title: `📅 ${title}`,
+            title: title,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
             tag: `event-${doc.id}`,
           })
@@ -260,7 +255,7 @@ export const sendScheduledNotifications = functions
         const alertMin = timeToMinutes(data.dueTime) - (data.reminder as number)
         if (alertMin === kstMinutes) {
           notifications.push({
-            title: `✅ ${data.title}`,
+            title: data.title,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
             tag: `task-${doc.id}`,
           })

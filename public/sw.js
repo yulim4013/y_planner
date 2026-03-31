@@ -27,39 +27,38 @@ self.addEventListener('message', (event) => {
   }
 })
 
-// FCM 백그라운드 푸시 수신 (잠금화면 / 앱이 닫혀있을 때)
+// 웹 푸시 수신 (잠금화면 / 앱이 닫혀있을 때)
 self.addEventListener('push', (event) => {
   if (!event.data) return
 
-  let payload
-  try {
-    payload = event.data.json()
-  } catch {
-    // JSON 파싱 실패 시 텍스트로 표시
-    const text = event.data.text()
-    event.waitUntil(
-      self.registration.showNotification('하루 플래너', { body: text })
-    )
-    return
-  }
+  // 앱이 포커스 상태면 푸시 알림 스킵 (클라이언트에서 처리)
+  const showIfNotFocused = self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clients) => {
+      const focused = clients.some((c) => c.visibilityState === 'visible')
+      if (focused) return // 앱이 열려있으면 중복 방지
 
-  const notification = payload.notification || {}
-  const data = payload.data || {}
+      let payload
+      try {
+        payload = event.data.json()
+      } catch {
+        return self.registration.showNotification('하루 플래너', { body: event.data.text() })
+      }
 
-  const title = notification.title || data.title || '하루 플래너'
-  const body = notification.body || data.body || ''
+      const notification = payload.notification || {}
+      const data = payload.data || {}
+      const title = notification.title || data.title || '하루 플래너'
+      const body = notification.body || data.body || ''
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: '/y_planner/icons/icon-192x192.jpg',
-      badge: '/y_planner/icons/icon-192x192.jpg',
-      data: data,
-      tag: data.tag || 'default',
-      renotify: true,
-      requireInteraction: false,
+      return self.registration.showNotification(title, {
+        body,
+        icon: '/y_planner/icons/icon-192x192.jpg',
+        badge: '/y_planner/icons/icon-192x192.jpg',
+        data: data,
+        tag: data.tag || 'default',
+      })
     })
-  )
+
+  event.waitUntil(showIfNotFocused)
 })
 
 // 알림 클릭 시 앱 열기

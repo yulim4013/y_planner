@@ -42,24 +42,14 @@ export function getNotificationPermission(): string {
 }
 
 // 알림 보내기
-function showNotification(title: string, body: string, iconId?: string) {
+function showNotification(title: string, body: string, _iconId?: string) {
   if (Notification.permission !== 'granted') return
 
-  const iconMap: Record<string, string> = {
-    sunrise: '\u{1F305}',
-    moon: '\u{1F319}',
-    stretch: '\u{1F9D8}',
-    water: '\u{1F4A7}',
-    pill: '\u{1F48A}',
-    journal: '\u{1F4DD}',
-  }
-  const emoji = iconId ? iconMap[iconId] || '\u{23F0}' : '\u{23F0}'
-
   try {
-    new Notification(`${emoji} ${title}`, {
+    new Notification(title, {
       body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/y_planner/icons/icon-192x192.jpg',
+      badge: '/y_planner/icons/icon-192x192.jpg',
       tag: `routine-${title}`,
       requireInteraction: false,
     })
@@ -68,7 +58,7 @@ function showNotification(title: string, body: string, iconId?: string) {
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
         type: 'SHOW_NOTIFICATION',
-        title: `${emoji} ${title}`,
+        title,
         body,
       })
     }
@@ -170,7 +160,7 @@ export function scheduleEventNotifications(events: CalendarEvent[]) {
     const key = `event-${event.id}`
     const displayTitle = event.title === '(제목 없음)' ? '일정' : event.title
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(eventTimers, key, `📅 ${displayTitle}`, body, targetDate)
+    scheduleItemReminder(eventTimers, key, displayTitle, body, targetDate)
   })
 }
 
@@ -197,6 +187,6 @@ export function scheduleTaskNotifications(tasks: Task[]) {
 
     const key = `task-${task.id}`
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(taskTimers, key, `✅ ${task.title}`, body, targetDate)
+    scheduleItemReminder(taskTimers, key, task.title, body, targetDate)
   })
 }
