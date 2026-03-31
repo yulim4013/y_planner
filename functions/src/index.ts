@@ -301,9 +301,12 @@ export const sendScheduledNotifications = functions
         const isToday = startStr === todayStr
         const isRepeatMatch = !isToday && matchesRepeatDate(startDate, todayStr, data.repeat, data.repeatEndDate)
 
+        console.log(`[Push] Event "${data.title}" startStr=${startStr} todayStr=${todayStr} isToday=${isToday} isRepeat=${isRepeatMatch} reminder=${data.reminder} startTime=${data.startTime}`)
+
         if (!isToday && !isRepeatMatch) return
 
         const alertMin = timeToMinutes(data.startTime) - (data.reminder as number)
+        console.log(`[Push] Event "${data.title}" alertMin=${alertMin} kstMin=${kstMinutes}`)
         if (alertMin === kstMinutes) {
           const title = data.title === '(제목 없음)' ? '일정' : data.title
           notifications.push({

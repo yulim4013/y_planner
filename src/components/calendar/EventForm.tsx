@@ -93,7 +93,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       isAllDay,
       categoryId: categoryId || null,
       location: location.trim(),
-      reminder: reminder ? parseInt(reminder, 10) : null,
+      reminder: reminder !== '' ? parseInt(reminder, 10) : null,
       repeat: repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
       repeatEndDate: repeatEndDate ? new Date(repeatEndDate + 'T00:00:00') : null,
     }

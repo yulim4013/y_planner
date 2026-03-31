@@ -10,6 +10,14 @@
   box-shadow: var(--neu-convex);
 }
 
+/* ---- Sticky top (header + allday inside scroll) ---- */
+.wv-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--color-bg);
+}
+
 /* ---- Header row ---- */
 .wv-header {
   display: flex;

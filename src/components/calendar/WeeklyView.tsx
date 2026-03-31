@@ -156,86 +156,91 @@ export default function WeeklyView({
     onAddEventAtTime(day, timeStr)
   }
 
+  const hasAllDay = dayData.some((dd) => dd.allDayEvents.length > 0 || dd.untimedTasks.length > 0)
+
   return (
     <div className="wv-container">
-      {/* Header row: day labels */}
-      <div className="wv-header">
-        <div className="wv-time-gutter-header" />
-        {days.map((day, i) => {
-          const today = isToday(day)
-          const selected = isSameDay(day, selectedDate)
-          const dayOfWeek = day.getDay()
-          return (
-            <div
-              key={day.toISOString()}
-              className={`wv-day-header ${today ? 'wv-today-header' : ''} ${selected ? 'wv-selected-header' : ''}`}
-              onClick={() => onSelectDate(day)}
-            >
-              <span className={`wv-day-label ${dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : ''}`}>
-                {DAY_LABELS[i]}
-              </span>
-              <span className={`wv-day-num ${today ? 'wv-today-num' : ''} ${selected ? 'wv-selected-num' : ''}`}>
-                {format(day, 'd')}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* All-day events row */}
-      {dayData.some((dd) => dd.allDayEvents.length > 0 || dd.untimedTasks.length > 0) && (
-        <div className="wv-allday-row">
-          <div className="wv-time-gutter wv-allday-label">종일</div>
-          {dayData.map((dd, i) => (
-            <div key={i} className="wv-allday-cell">
-              {dd.allDayEvents.map((ev) => {
-                const cat = getCat(ev.categoryId)
-                return (
-                  <div
-                    key={ev.id}
-                    className="wv-allday-item"
-                    style={{
-                      background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.13)',
-                      borderLeft: `3px solid ${cat?.color || '#64B5F6'}`,
-                    }}
-                    onClick={() => onEditEvent(ev)}
-                  >
-                    <span className="wv-allday-title">{ev.title}</span>
-                  </div>
-                )
-              })}
-              {dd.untimedTasks.map((task) => {
-                const cat = getCat(task.categoryId)
-                return (
-                  <div
-                    key={task.id}
-                    className={`wv-allday-task ${task.isCompleted ? 'wv-done' : ''}`}
-                  >
-                    <button
-                      className={`wv-check ${task.isCompleted ? 'done' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)
-                      }}
-                    >
-                      {task.isCompleted && (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      )}
-                    </button>
-                    <span className="wv-allday-task-title" onClick={() => onEditTask(task)}>
-                      {cat && <span style={{ color: cat.color, marginRight: 3 }}>{cat.icon}</span>}
-                      {task.title}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Scrollable time grid */}
+      {/* 스크롤 컨테이너 안에 헤더를 넣어서 컬럼 정렬 보장 */}
       <div className="wv-scroll" ref={scrollRef}>
+        {/* Sticky header */}
+        <div className="wv-sticky-top">
+          <div className="wv-header">
+            <div className="wv-time-gutter-header" />
+            {days.map((day, i) => {
+              const today = isToday(day)
+              const selected = isSameDay(day, selectedDate)
+              const dayOfWeek = day.getDay()
+              return (
+                <div
+                  key={day.toISOString()}
+                  className={`wv-day-header ${today ? 'wv-today-header' : ''} ${selected ? 'wv-selected-header' : ''}`}
+                  onClick={() => onSelectDate(day)}
+                >
+                  <span className={`wv-day-label ${dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : ''}`}>
+                    {DAY_LABELS[i]}
+                  </span>
+                  <span className={`wv-day-num ${today ? 'wv-today-num' : ''} ${selected ? 'wv-selected-num' : ''}`}>
+                    {format(day, 'd')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* All-day events row */}
+          {hasAllDay && (
+            <div className="wv-allday-row">
+              <div className="wv-time-gutter wv-allday-label">종일</div>
+              {dayData.map((dd, i) => (
+                <div key={i} className="wv-allday-cell">
+                  {dd.allDayEvents.map((ev) => {
+                    const cat = getCat(ev.categoryId)
+                    return (
+                      <div
+                        key={ev.id}
+                        className="wv-allday-item"
+                        style={{
+                          background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.13)',
+                          borderLeft: `3px solid ${cat?.color || '#64B5F6'}`,
+                        }}
+                        onClick={() => onEditEvent(ev)}
+                      >
+                        <span className="wv-allday-title">{ev.title}</span>
+                      </div>
+                    )
+                  })}
+                  {dd.untimedTasks.map((task) => {
+                    const cat = getCat(task.categoryId)
+                    return (
+                      <div
+                        key={task.id}
+                        className={`wv-allday-task ${task.isCompleted ? 'wv-done' : ''}`}
+                      >
+                        <button
+                          className={`wv-check ${task.isCompleted ? 'done' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)
+                          }}
+                        >
+                          {task.isCompleted && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                        </button>
+                        <span className="wv-allday-task-title" onClick={() => onEditTask(task)}>
+                          {cat && <span style={{ color: cat.color, marginRight: 3 }}>{cat.icon}</span>}
+                          {task.title}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Time grid */}
         <div className="wv-grid" style={{ height: 24 * HOUR_HEIGHT }}>
           {/* Time labels + hour lines */}
           {HOURS.map((hour) => (
