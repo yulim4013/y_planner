@@ -387,57 +387,74 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 이벤트 겹침 감지 → 컬럼 배치 (Apple Calendar 스타일)
-  const eventColumns = (() => {
+  // 이벤트 + 단독 태스크 겹침 감지 → 컬럼 배치 (동일 시작시간 분할)
+  const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
-    if (eventGroups.length <= 1) {
-      eventGroups.forEach((g) => cols.set(g.event.id, { col: 0, total: 1 }))
+
+    type Item = { id: string; start: number; end: number }
+    const items: Item[] = []
+
+    eventGroups.forEach((g) => {
+      const start = timeToMinutes(g.event.startTime!)
+      const end = g.event.endTime ? timeToMinutes(g.event.endTime) : start + 60
+      items.push({ id: g.event.id, start, end })
+    })
+
+    ungroupedTasks.forEach((t) => {
+      const displayTime = t.isCompleted && t.completedTime ? t.completedTime : t.dueTime!
+      const start = timeToMinutes(displayTime)
+      // 태스크는 얇은 행 → 최소 end(start+1)로 같은 시작시간만 겹침 감지
+      items.push({ id: t.id, start, end: start + 1 })
+    })
+
+    if (items.length <= 1) {
+      items.forEach((item) => cols.set(item.id, { col: 0, total: 1 }))
       return cols
     }
-    // 시작시간 순 정렬된 이벤트 목록
-    const sorted = eventGroups.map((g) => ({
-      id: g.event.id,
-      start: timeToMinutes(g.event.startTime!),
-      end: g.event.endTime ? timeToMinutes(g.event.endTime) : timeToMinutes(g.event.startTime!) + 60,
-    })).sort((a, b) => a.start - b.start || a.end - b.end)
+
+    const sorted = [...items].sort((a, b) => a.start - b.start || a.end - b.end)
 
     // 겹치는 그룹 찾기
-    const groups: typeof sorted[] = []
+    const groups: (typeof sorted)[] = []
     let currentGroup: typeof sorted = []
     let groupEnd = 0
-    for (const ev of sorted) {
-      if (currentGroup.length === 0 || ev.start < groupEnd) {
-        currentGroup.push(ev)
-        groupEnd = Math.max(groupEnd, ev.end)
+    for (const item of sorted) {
+      if (currentGroup.length === 0 || item.start < groupEnd) {
+        currentGroup.push(item)
+        groupEnd = Math.max(groupEnd, item.end)
       } else {
         groups.push(currentGroup)
-        currentGroup = [ev]
-        groupEnd = ev.end
+        currentGroup = [item]
+        groupEnd = item.end
       }
     }
     if (currentGroup.length > 0) groups.push(currentGroup)
 
     // 각 그룹 내에서 컬럼 할당
     for (const group of groups) {
-      const colEnds: number[] = [] // 각 컬럼의 종료시간
-      for (const ev of group) {
+      if (group.length === 1) {
+        cols.set(group[0].id, { col: 0, total: 1 })
+        continue
+      }
+      const colEnds: number[] = []
+      for (const item of group) {
         let placed = false
         for (let c = 0; c < colEnds.length; c++) {
-          if (colEnds[c] <= ev.start) {
-            colEnds[c] = ev.end
-            cols.set(ev.id, { col: c, total: 0 })
+          if (colEnds[c] <= item.start) {
+            colEnds[c] = item.end
+            cols.set(item.id, { col: c, total: 0 })
             placed = true
             break
           }
         }
         if (!placed) {
-          cols.set(ev.id, { col: colEnds.length, total: 0 })
-          colEnds.push(ev.end)
+          cols.set(item.id, { col: colEnds.length, total: 0 })
+          colEnds.push(item.end)
         }
       }
       const total = colEnds.length
-      for (const ev of group) {
-        const entry = cols.get(ev.id)!
+      for (const item of group) {
+        const entry = cols.get(item.id)!
         entry.total = total
       }
     }
@@ -862,7 +879,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const isActive = activeEventId === event.id
 
             // 겹침 컬럼 계산
-            const colInfo = eventColumns.get(event.id) || { col: 0, total: 1 }
+            const colInfo = itemColumns.get(event.id) || { col: 0, total: 1 }
             const colStyle = colInfo.total > 1
               ? { left: `calc(66px + (100% - 74px) * ${colInfo.col} / ${colInfo.total})`, width: `calc((100% - 74px) / ${colInfo.total})`, right: 'auto' as const }
               : {}
@@ -950,62 +967,48 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             )
           })}
 
-          {/* 그룹 밖 태스크 (겹치면 나란히 배치) */}
-          {(() => {
-            // 같은 시간대 태스크 그룹핑
-            const tasksByTime = new Map<number, typeof ungroupedTasks>()
-            ungroupedTasks.forEach((task) => {
-              const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
-              const min = timeToMinutes(displayTime)
-              const group = tasksByTime.get(min) || []
-              group.push(task)
-              tasksByTime.set(min, group)
-            })
+          {/* 그룹 밖 태스크 */}
+          {ungroupedTasks.map((task) => {
+            const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
+            const min = timeToMinutes(displayTime)
+            const top = (min / 60) * HOUR_HEIGHT
+            const cat = getCat(task.categoryId)
+            const isDragging = draggedId === task.id
+            const handlers = makeItemHandlers('task', task.id, min)
 
-            return ungroupedTasks.map((task) => {
-              const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
-              const min = timeToMinutes(displayTime)
-              const top = (min / 60) * HOUR_HEIGHT
-              const cat = getCat(task.categoryId)
-              const isDragging = draggedId === task.id
-              const handlers = makeItemHandlers('task', task.id, min)
+            const colInfo = itemColumns.get(task.id) || { col: 0, total: 1 }
+            const colStyle = colInfo.total > 1
+              ? { left: `calc(66px + (100% - 74px) * ${colInfo.col} / ${colInfo.total})`, width: `calc((100% - 74px) / ${colInfo.total})`, right: 'auto' as const }
+              : {}
 
-              // 같은 시간 태스크 중 인덱스 계산
-              const sameTimeTasks = tasksByTime.get(min) || [task]
-              const colIndex = sameTimeTasks.indexOf(task)
-              const colCount = sameTimeTasks.length
-              const colWidth = colCount > 1 ? `calc((100% - 74px) / ${colCount})` : undefined
-              const colLeft = colCount > 1 ? `calc(66px + (100% - 74px) * ${colIndex} / ${colCount})` : undefined
-
-              return (
-                <div
-                  key={task.id}
-                  className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
-                  style={{
-                    top,
-                    ...(colCount > 1 ? { left: colLeft, width: colWidth, right: 'auto' } : {}),
-                    ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
-                  }}
-                  onClick={() => handleItemClick('task', task)}
-                  {...handlers}
+            return (
+              <div
+                key={task.id}
+                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                style={{
+                  top,
+                  ...colStyle,
+                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                }}
+                onClick={() => handleItemClick('task', task)}
+                {...handlers}
+              >
+                <button
+                  className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                  style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
+                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
                 >
-                  <button
-                    className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
-                    style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
-                    onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
-                  >
-                    {task.isCompleted && (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </button>
-                  <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-                  {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
-                </div>
-              )
-            })
-          })()}
+                  {task.isCompleted && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+                <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
+                {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
+              </div>
+            )
+          })}
 
           {/* 수면 블록 → 탭 시 바로 수정 모달 */}
           {sleepBlocks.map((block, i) => (

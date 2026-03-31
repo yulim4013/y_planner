@@ -324,17 +324,10 @@
     margin-top: 0;
   }
 
-  /* 일 뷰 - 주간스트립 + 타임라인 가로 배치 */
+  /* 일 뷰 - PC에서도 모바일과 동일하게 세로 배치 (주간스트립 위, 타임라인 아래) */
   .day-view-layout {
-    flex-direction: row;
-    gap: 24px;
-  }
-
-  .day-view-header-pinned {
-    width: 280px;
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
+    max-width: 600px;
+    margin: 0 auto;
   }
 
   .day-view-timeline-scroll {

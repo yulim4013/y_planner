@@ -10,8 +10,7 @@ import {
   subscribeActiveTemplates, deleteRoutineTemplate, updateRoutineOrder,
 } from '../../services/routineService'
 import {
-  requestNotificationPermission, scheduleAllRoutineNotifications,
-  scheduleEventNotifications, scheduleTaskNotifications,
+  requestNotificationPermission,
   getNotificationPermission,
 } from '../../services/notificationService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
@@ -208,18 +207,7 @@ export default function DashboardPage() {
   // Routine progress
   const routineCompletedCount = routines.filter((r) => r.isCompleted).length
 
-  // 알림 스케줄링 (루틴 + 일정 + 태스크)
-  useEffect(() => {
-    if (routines.length > 0) scheduleAllRoutineNotifications(routines)
-  }, [routines])
-
-  useEffect(() => {
-    if (todayEvents.length > 0) scheduleEventNotifications(todayEvents)
-  }, [events])
-
-  useEffect(() => {
-    if (todayTasks.length > 0) scheduleTaskNotifications(todayTasks)
-  }, [tasks])
+  // 알림은 Cloud Function 서버 푸시로 처리 (클라이언트 setTimeout 제거)
 
   // 일정 카테고리별 시간 통계 (카테고리 ID 기반 매칭)
   const categoryTimeStats = (() => {
