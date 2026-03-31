@@ -20,23 +20,62 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     self.registration.showNotification(event.data.title, {
       body: event.data.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/y_planner/icons/icon-192x192.jpg',
+      badge: '/y_planner/icons/icon-192x192.jpg',
       requireInteraction: false,
     })
   }
 })
 
+// FCM 백그라운드 푸시 수신 (잠금화면 / 앱이 닫혀있을 때)
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+
+  let payload
+  try {
+    payload = event.data.json()
+  } catch {
+    // JSON 파싱 실패 시 텍스트로 표시
+    const text = event.data.text()
+    event.waitUntil(
+      self.registration.showNotification('하루 플래너', { body: text })
+    )
+    return
+  }
+
+  const notification = payload.notification || {}
+  const data = payload.data || {}
+
+  const title = notification.title || data.title || '하루 플래너'
+  const body = notification.body || data.body || ''
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/y_planner/icons/icon-192x192.jpg',
+      badge: '/y_planner/icons/icon-192x192.jpg',
+      data: data,
+      tag: data.tag || 'default',
+      renotify: true,
+      requireInteraction: false,
+    })
+  )
+})
+
 // 알림 클릭 시 앱 열기
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  const urlPath = event.notification.data?.url || '/y_planner/'
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      if (clients.length > 0) {
-        clients[0].focus()
-      } else {
-        self.clients.openWindow('/')
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // 이미 열린 탭이 있으면 포커스
+      for (const client of clients) {
+        if (client.url.includes('/y_planner/') && 'focus' in client) {
+          return client.focus()
+        }
       }
+      // 없으면 새 탭 열기
+      return self.clients.openWindow(urlPath)
     })
   )
 })

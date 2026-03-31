@@ -1,21 +1,35 @@
-// 브라우저 알림(Notification API) 기반 알림 서비스
-// FCM 없이 클라이언트 사이드에서 동작. 앱이 열려 있을 때만 작동.
+// 알림 서비스 - 브라우저 Notification API + FCM 연동
+// 앱이 열려있을 때: setTimeout 기반 로컬 알림
+// 앱이 닫혀있을 때: FCM 백그라운드 푸시 (잠금화면 표시)
 
 import type { Routine, CalendarEvent, Task } from '../types'
+import { registerFCMToken } from './fcmService'
+import { useAuthStore } from '../store/authStore'
 
 let scheduledTimers: Map<string, number> = new Map()
 
-// 알림 권한 요청
+// 알림 권한 요청 + FCM 토큰 등록
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
     console.warn('이 브라우저는 알림을 지원하지 않습니다')
     return false
   }
-  if (Notification.permission === 'granted') return true
+  if (Notification.permission === 'granted') {
+    // 이미 권한 있으면 FCM 토큰만 확인
+    const uid = useAuthStore.getState().user?.uid
+    if (uid) registerFCMToken(uid).catch(() => {})
+    return true
+  }
   if (Notification.permission === 'denied') return false
 
   const result = await Notification.requestPermission()
-  return result === 'granted'
+  if (result === 'granted') {
+    // 권한 획득 시 FCM 토큰 등록
+    const uid = useAuthStore.getState().user?.uid
+    if (uid) registerFCMToken(uid).catch(() => {})
+    return true
+  }
+  return false
 }
 
 // 알림 권한 상태

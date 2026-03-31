@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, isFirebaseConfigured } from './config/firebase'
 import { useAuthStore } from './store/authStore'
+import { registerFCMToken, setupForegroundListener } from './services/fcmService'
 import AppShell from './components/layout/AppShell'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './components/home/DashboardPage'
@@ -51,6 +52,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const setUser = useAuthStore((s) => s.setUser)
+  const fcmInitialized = useRef(false)
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) {
@@ -58,8 +60,21 @@ export default function App() {
       return
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
+
+      // FCM 토큰 등록 (로그인 & 알림 허용 상태일 때)
+      if (user && !fcmInitialized.current) {
+        fcmInitialized.current = true
+        try {
+          if (Notification.permission === 'granted') {
+            await registerFCMToken(user.uid)
+          }
+          setupForegroundListener()
+        } catch (err) {
+          console.warn('[FCM] init error:', err)
+        }
+      }
     })
     return unsubscribe
   }, [setUser])

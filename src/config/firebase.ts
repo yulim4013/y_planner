@@ -2,6 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth'
 import { getFirestore, enableIndexedDbPersistence, type Firestore } from 'firebase/firestore'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
+import { getMessaging, type Messaging } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,6 +19,7 @@ let app: FirebaseApp | null = null
 let auth: Auth | null = null
 let db: Firestore | null = null
 let storage: FirebaseStorage | null = null
+let messaging: Messaging | null = null
 let googleProvider: GoogleAuthProvider | null = null
 
 if (isFirebaseConfigured) {
@@ -26,6 +28,13 @@ if (isFirebaseConfigured) {
   googleProvider = new GoogleAuthProvider()
   db = getFirestore(app)
   storage = getStorage(app)
+
+  // Firebase Messaging 초기화 (지원하는 브라우저에서만)
+  try {
+    messaging = getMessaging(app)
+  } catch (err) {
+    console.warn('Firebase Messaging not supported:', err)
+  }
 
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
@@ -36,4 +45,4 @@ if (isFirebaseConfigured) {
   })
 }
 
-export { app, auth, googleProvider, db, storage }
+export { app, auth, googleProvider, db, storage, messaging }
