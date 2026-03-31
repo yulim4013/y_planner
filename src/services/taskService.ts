@@ -69,6 +69,8 @@ export async function addTask(data: {
   dueTime?: string | null
   categoryId?: string | null
   projectId?: string | null
+  reminder?: number | null
+  repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   subItems?: { id: string; text: string; isCompleted: boolean; order: number }[]
 }) {
   const ref = getTasksRef()
@@ -84,6 +86,8 @@ export async function addTask(data: {
     dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
     dueTime: data.dueTime || null,
     categoryId: data.categoryId || null,
+    reminder: data.reminder ?? null,
+    repeat: data.repeat || 'none',
     subItems: data.subItems || [],
     isCompleted: false,
     completedAt: null,
