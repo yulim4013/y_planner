@@ -295,10 +295,24 @@
   text-align: center;
 }
 
+/* 주간 뷰 토글 버튼 - 모바일에서 숨김 */
+.view-toggle-week {
+  display: none;
+}
+
+/* 주간 뷰 레이아웃 - 모바일에서 숨김 (fallback) */
+.week-view-layout {
+  display: none;
+}
+
 /* ==================== PC 데스크톱 ==================== */
 @media (min-width: 768px) {
   .cal-view-toggle {
-    max-width: 200px;
+    max-width: 260px;
+  }
+
+  .view-toggle-week {
+    display: block;
   }
 
   .cal-nav-title {
@@ -341,5 +355,16 @@
 
   .day-view-date-label {
     font-size: 16px;
+  }
+
+  /* 주간 뷰 레이아웃 */
+  .week-view-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    /* Fill available height: subtract header + toggle + nav approx */
+    height: calc(100vh - 200px);
   }
 }

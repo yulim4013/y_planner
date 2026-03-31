@@ -11,6 +11,7 @@ import GlassCard from '../common/GlassCard'
 import MonthlyView from './MonthlyView'
 import DailyView from './DailyView'
 import TimelineView from './TimelineView'
+import WeeklyView from './WeeklyView'
 import EventForm from './EventForm'
 import TaskForm from '../tasks/TaskForm'
 import { subscribeEvents, updateEvent } from '../../services/eventService'
@@ -24,7 +25,7 @@ import { matchesRepeatDate } from '../../utils/repeatUtils'
 import type { CalendarEvent, Task, Category, Routine, Transaction, SleepRecord } from '../../types'
 import './CalendarPage.css'
 
-type ViewType = 'month' | 'day'
+type ViewType = 'month' | 'day' | 'week'
 
 export default function CalendarPage() {
   const [view, setView] = useState<ViewType>('day')
@@ -192,17 +193,27 @@ export default function CalendarPage() {
 
   const handlePrev = () => {
     if (view === 'month') setCurrentDate(subMonths(currentDate, 1))
+    else if (view === 'week') setSelectedDate(subWeeks(selectedDate, 1))
     else setSelectedDate(subWeeks(selectedDate, 1))
   }
 
   const handleNext = () => {
     if (view === 'month') setCurrentDate(addMonths(currentDate, 1))
+    else if (view === 'week') setSelectedDate(addWeeks(selectedDate, 1))
     else setSelectedDate(addWeeks(selectedDate, 1))
   }
 
   const getNavTitle = () => {
     if (view === 'month') return getMonthYear(currentDate)
     return format(selectedDate, 'yyyy년 M월', { locale: ko })
+  }
+
+  // Weekly view: add event at specific time on a specific day
+  const handleAddEventAtTimeForDay = (date: Date, startTime: string) => {
+    setSelectedDate(date)
+    setDefaultStartTime(startTime)
+    setEditEvent(null)
+    setEventFormOpen(true)
   }
 
   const [defaultStartTime, setDefaultStartTime] = useState<string | undefined>()
@@ -300,7 +311,7 @@ export default function CalendarPage() {
     : null
 
   return (
-    <div className={`page ${view === 'day' ? 'page-fixed' : ''}`}>
+    <div className={`page ${view === 'day' || view === 'week' ? 'page-fixed' : ''}`}>
       <Header title="CALENDAR" right={
         <div className="cal-add-wrapper">
           <button className="header-add-btn" onClick={() => setShowAddPicker(!showAddPicker)}>+</button>
@@ -344,6 +355,12 @@ export default function CalendarPage() {
             {v === 'month' ? '월' : '일'}
           </button>
         ))}
+        <button
+          className={`view-toggle-btn view-toggle-week ${view === 'week' ? 'active' : ''}`}
+          onClick={() => setView('week')}
+        >
+          주
+        </button>
       </div>
 
       <div className="cal-nav">
@@ -458,6 +475,22 @@ export default function CalendarPage() {
               onSwipeNext={() => setSelectedDate((d) => addDays(d, 1))}
             />
           </div>
+        </div>
+      )}
+
+      {view === 'week' && (
+        <div className="week-view-layout">
+          <WeeklyView
+            weekStart={weekStart}
+            events={events}
+            tasks={tasks}
+            categories={categories}
+            selectedDate={selectedDate}
+            onSelectDate={handleSelectDate}
+            onEditEvent={handleEditEvent}
+            onEditTask={handleEditTask}
+            onAddEventAtTime={handleAddEventAtTimeForDay}
+          />
         </div>
       )}
 
