@@ -231,7 +231,7 @@ export const sendScheduledNotifications = functions
         if (alertMin === kstMinutes) {
           const title = data.title === '(제목 없음)' ? '일정' : data.title
           notifications.push({
-            title: title,
+            title: `📅 ${title}`,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
             tag: `event-${doc.id}`,
           })
@@ -244,18 +244,24 @@ export const sendScheduledNotifications = functions
     // 3. 태스크 알림
     try {
       const snap = await userRef.collection('tasks').where('isCompleted', '==', false).get()
+      console.log(`[Push] Tasks found: ${snap.size} incomplete`)
       snap.docs.forEach((doc) => {
         const data = doc.data()
         if (data.reminder == null || !data.dueTime) return
+
+        // dueDate가 없으면 오늘 기준으로 체크
         if (data.dueDate) {
           const d = data.dueDate.toDate()
           const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
           if (ds !== todayStr) return
         }
+
         const alertMin = timeToMinutes(data.dueTime) - (data.reminder as number)
+        console.log(`[Push] Task "${data.title}" alertMin=${alertMin} kstMin=${kstMinutes} reminder=${data.reminder} dueTime=${data.dueTime}`)
+
         if (alertMin === kstMinutes) {
           notifications.push({
-            title: data.title,
+            title: `✅ ${data.title}`,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
             tag: `task-${doc.id}`,
           })

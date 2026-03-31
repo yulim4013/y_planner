@@ -160,7 +160,7 @@ export function scheduleEventNotifications(events: CalendarEvent[]) {
     const key = `event-${event.id}`
     const displayTitle = event.title === '(제목 없음)' ? '일정' : event.title
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(eventTimers, key, displayTitle, body, targetDate)
+    scheduleItemReminder(eventTimers, key, `📅 ${displayTitle}`, body, targetDate)
   })
 }
 
@@ -187,6 +187,6 @@ export function scheduleTaskNotifications(tasks: Task[]) {
 
     const key = `task-${task.id}`
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(taskTimers, key, task.title, body, targetDate)
+    scheduleItemReminder(taskTimers, key, `✅ ${task.title}`, body, targetDate)
   })
 }
