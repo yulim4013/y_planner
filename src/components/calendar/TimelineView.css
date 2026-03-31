@@ -76,10 +76,13 @@
 /* 타임라인 그리드 */
 .tl-grid {
   position: relative;
+  overflow: hidden;
+  touch-action: pan-y; /* 세로 스크롤은 브라우저가, 가로 제스처는 JS가 처리 */
 }
 
 .tl-grid-inner {
   position: relative;
+  will-change: transform;
 }
 
 /* 시간 행 */

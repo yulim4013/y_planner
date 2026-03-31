@@ -33,6 +33,7 @@ export interface Task {
   completedAt: Timestamp | null
   completedTime: string | null     // 'HH:mm' - 실제 완료된 시간
   reminder: number | null
+  repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   createdAt: Timestamp
   updatedAt: Timestamp
 }

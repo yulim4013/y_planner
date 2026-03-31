@@ -113,6 +113,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lpTriggeredRef = useRef(false)
+  const lpTriggeredTimeRef = useRef(0)  // 꾹 누르기가 트리거된 시각
   const touchStartPosRef = useRef({ x: 0, y: 0 })
   const preMouseRef = useRef<{ moveFn: (e: MouseEvent) => void; upFn: () => void } | null>(null)
 
@@ -261,7 +262,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
         lpTimerRef.current = setTimeout(() => {
           lpTriggeredRef.current = true
-          // 이벤트 활성화 (리사이즈 핸들 표시) - 이미 활성화면 드래그 시작
+          lpTriggeredTimeRef.current = Date.now()
+          // 꾹 누르기 → 활성화 (리사이즈 핸들 표시) 또는 드래그 시작
           if (type === 'event' && activeEventId !== id) {
             setActiveEventId(id)
             try { navigator.vibrate?.(25) } catch {}
@@ -536,9 +538,13 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   // Click guard: prevent click after long-press / drag / activation
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
-    if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
+    // 꾹 누르기 직후 600ms 내 클릭은 무시 (꾹 누르기 후 click 이벤트 방지)
+    if (lpTriggeredRef.current || (Date.now() - lpTriggeredTimeRef.current < 600)) {
+      lpTriggeredRef.current = false
+      return
+    }
     if (actionBar || draggedId) return
-    // 싱글 탭 → 바로 수정 폼 열기 (활성 상태여도 수정 폼 열기)
+    // 싱글 탭 → 바로 수정 폼 열기
     if (activeEventId) setActiveEventId(null)
     if (type === 'event') onEditEvent(item as CalendarEvent)
     else onEditTask(item as Task)
@@ -653,58 +659,76 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     }
   }
 
-  // ── 타임라인 좌우 스와이프로 일자 이동 ──
+  // ── 타임라인 좌우 스와이프로 일자 이동 (native event listener for passive: false) ──
   const tlSwipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
   const [tlSwipeOffset, setTlSwipeOffset] = useState(0)
   const [tlSwipeAnimating, setTlSwipeAnimating] = useState(false)
+  const onSwipePrevRef = useRef(onSwipePrev)
+  const onSwipeNextRef = useRef(onSwipeNext)
+  onSwipePrevRef.current = onSwipePrev
+  onSwipeNextRef.current = onSwipeNext
 
-  const handleTlSwipeStart = useCallback((e: React.TouchEvent) => {
-    // 드래그 중에는 스와이프 방지 (롱프레스 타이머는 스와이프 move에서 취소)
-    if (draggedId) return
-    tlSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
-  }, [draggedId])
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
 
-  const handleTlSwipeMove = useCallback((e: React.TouchEvent) => {
-    if (!tlSwipeRef.current) return
-    const dx = e.touches[0].clientX - tlSwipeRef.current.startX
-    const dy = e.touches[0].clientY - tlSwipeRef.current.startY
-    if (!tlSwipeRef.current.decided && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
-      tlSwipeRef.current.decided = true
-      tlSwipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5
-      // 수평 스와이프 감지 시 그리드 롱프레스 + 아이템 롱프레스 타이머 취소
-      if (tlSwipeRef.current.isHorizontal) {
-        if (gridLpRef.current) { clearTimeout(gridLpRef.current); clearTimeout((gridLpRef as any)._previewTimer); gridLpRef.current = null; setLpIndicator(null) }
-        if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+    const onStart = (e: TouchEvent) => {
+      if (dragRef.current) return
+      tlSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!tlSwipeRef.current) return
+      const dx = e.touches[0].clientX - tlSwipeRef.current.startX
+      const dy = e.touches[0].clientY - tlSwipeRef.current.startY
+      if (!tlSwipeRef.current.decided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        tlSwipeRef.current.decided = true
+        tlSwipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.3
+        if (tlSwipeRef.current.isHorizontal) {
+          // 수평 스와이프 → 모든 롱프레스 타이머 취소
+          if (gridLpRef.current) { clearTimeout(gridLpRef.current); clearTimeout((gridLpRef as any)._previewTimer); gridLpRef.current = null; setLpIndicator(null) }
+          if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+        }
+      }
+      if (tlSwipeRef.current.decided && tlSwipeRef.current.isHorizontal) {
+        e.preventDefault() // 브라우저 기본 스크롤/네비게이션 차단
+        setTlSwipeOffset(dx * 0.35)
       }
     }
-    if (tlSwipeRef.current.decided && tlSwipeRef.current.isHorizontal) {
-      setTlSwipeOffset(dx * 0.4) // 저항감 있는 따라가기
-    }
-  }, [])
 
-  const handleTlSwipeEnd = useCallback((e: React.TouchEvent) => {
-    if (!tlSwipeRef.current) return
-    const dx = e.changedTouches[0].clientX - tlSwipeRef.current.startX
-    const isHoriz = tlSwipeRef.current.isHorizontal
-    tlSwipeRef.current = null
+    const onEnd = (e: TouchEvent) => {
+      if (!tlSwipeRef.current) return
+      const dx = e.changedTouches[0].clientX - tlSwipeRef.current.startX
+      const isHoriz = tlSwipeRef.current.isHorizontal
+      tlSwipeRef.current = null
 
-    if (isHoriz && Math.abs(dx) > 80) {
-      setTlSwipeAnimating(true)
-      setTlSwipeOffset(dx > 0 ? window.innerWidth * 0.3 : -window.innerWidth * 0.3)
-      setTimeout(() => {
-        if (dx > 0) onSwipePrev?.()
-        else onSwipeNext?.()
+      if (isHoriz && Math.abs(dx) > 60) {
+        setTlSwipeAnimating(true)
+        setTlSwipeOffset(dx > 0 ? window.innerWidth * 0.3 : -window.innerWidth * 0.3)
+        setTimeout(() => {
+          if (dx > 0) onSwipePrevRef.current?.()
+          else onSwipeNextRef.current?.()
+          setTlSwipeOffset(0)
+          setTlSwipeAnimating(false)
+        }, 200)
+      } else if (isHoriz) {
+        setTlSwipeAnimating(true)
         setTlSwipeOffset(0)
-        setTlSwipeAnimating(false)
-      }, 250)
-    } else if (isHoriz) {
-      setTlSwipeAnimating(true)
-      setTlSwipeOffset(0)
-      setTimeout(() => setTlSwipeAnimating(false), 200)
-    } else {
-      setTlSwipeOffset(0)
+        setTimeout(() => setTlSwipeAnimating(false), 200)
+      } else {
+        setTlSwipeOffset(0)
+      }
     }
-  }, [onSwipePrev, onSwipeNext])
+
+    grid.addEventListener('touchstart', onStart, { passive: true })
+    grid.addEventListener('touchmove', onMove, { passive: false })
+    grid.addEventListener('touchend', onEnd, { passive: true })
+    return () => {
+      grid.removeEventListener('touchstart', onStart)
+      grid.removeEventListener('touchmove', onMove)
+      grid.removeEventListener('touchend', onEnd)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hours = Array.from({ length: 24 }, (_, i) => i)
   const hasContent = events.length > 0 || tasks.length > 0 || routines.length > 0 || sleepBlocks.length > 0
@@ -767,9 +791,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       <div
         className="tl-grid"
         ref={gridRef}
-        onTouchStart={handleTlSwipeStart}
-        onTouchMove={handleTlSwipeMove}
-        onTouchEnd={handleTlSwipeEnd}
       >
         <div
           className="tl-grid-inner"
@@ -986,23 +1007,25 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             })
           })()}
 
-          {/* 수면 블록 */}
+          {/* 수면 블록 → 탭 시 바로 수정 모달 */}
           {sleepBlocks.map((block, i) => (
             <div
               key={`sleep-${i}`}
-              className={`tl-sleep-block ${actionBar?.type === 'sleep' && actionBar.id === block.sleepId ? 'tl-selected' : ''}`}
+              className={`tl-sleep-block`}
               style={{ top: block.top, height: Math.max(block.height, 40) }}
               onClick={(e) => {
                 e.stopPropagation()
-                if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
+                if (lpTriggeredRef.current || (Date.now() - lpTriggeredTimeRef.current < 600)) { lpTriggeredRef.current = false; return }
                 if (actionBar || draggedId) return
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                const bw = 180
-                let bt = rect.bottom + 8
-                let bl = rect.left + rect.width / 2
-                if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
-                bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
-                setActionBar({ type: 'sleep', id: block.sleepId, id2: block.wakeId, barTop: bt, barLeft: bl })
+                // 바로 수정 모달 열기
+                const sr = sleepInfo?.sleepRecord
+                const wr = sleepInfo?.wakeRecord
+                if (sr && wr) {
+                  setSleepEditSleepTime(sr.time)
+                  setSleepEditWakeTime(wr.time)
+                  setSleepEditIds({ sleepId: sr.id, wakeId: wr.id })
+                  setSleepEditOpen(true)
+                }
               }}
             >
               <div className="tl-sleep-content">

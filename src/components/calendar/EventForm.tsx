@@ -32,6 +32,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
   const [location, setLocation] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [reminder, setReminder] = useState<string>('')
+  const [repeat, setRepeat] = useState<string>('none')
 
   useEffect(() => {
     if (editEvent) {
@@ -44,7 +45,8 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       setEndTime(editEvent.endTime || '')
       setIsAllDay(editEvent.isAllDay)
       setLocation(editEvent.location || '')
-      setReminder((editEvent as any).reminder || '')
+      setReminder(editEvent.reminder != null ? String(editEvent.reminder) : '')
+      setRepeat(editEvent.repeat || 'none')
     } else {
       resetForm()
     }
@@ -72,6 +74,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
     setLocation('')
     setCategoryId(null)
     setReminder('')
+    setRepeat('none')
   }
 
   const handleSubmit = async () => {
@@ -88,6 +91,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       categoryId: categoryId || null,
       location: location.trim(),
       reminder: reminder ? parseInt(reminder, 10) : null,
+      repeat: repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
     }
 
     if (editEvent) {
@@ -230,6 +234,21 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
             </select>
           </div>
         )}
+
+        <div className="event-form-row">
+          <label className="event-form-label">반복</label>
+          <select
+            className="event-form-date"
+            value={repeat}
+            onChange={(e) => setRepeat(e.target.value)}
+          >
+            <option value="none">반복 안 함</option>
+            <option value="daily">매일</option>
+            <option value="weekly">매주</option>
+            <option value="monthly">매월</option>
+            <option value="yearly">매년</option>
+          </select>
+        </div>
 
         <textarea
           className="event-form-textarea"

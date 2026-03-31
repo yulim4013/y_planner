@@ -22,6 +22,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
   const [subItems, setSubItems] = useState<SubItem[]>([])
   const [newSubItem, setNewSubItem] = useState('')
   const [reminder, setReminder] = useState<string>('')
+  const [repeat, setRepeat] = useState<string>('none')
 
   useEffect(() => {
     if (editTask) {
@@ -31,7 +32,8 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       setCategoryId(editTask.categoryId || null)
       setDueDate(editTask.dueDate ? formatDateInput(editTask.dueDate.toDate()) : '')
       setDueTime(editTask.dueTime || '')
-      setReminder((editTask as any).reminder || '')
+      setReminder(editTask.reminder != null ? String(editTask.reminder) : '')
+      setRepeat(editTask.repeat || 'none')
       setSubItems(editTask.subItems || [])
     } else {
       resetForm()
@@ -46,6 +48,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     setDueDate('')
     setDueTime('')
     setReminder('')
+    setRepeat('none')
     setSubItems([])
     setNewSubItem('')
   }
@@ -96,6 +99,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       dueTime: dueTime || null,
       categoryId: categoryId || null,
       reminder: reminder ? parseInt(reminder, 10) : null,
+      repeat: repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
       subItems: plainSubItems,
     }
 
@@ -194,6 +198,21 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
             </select>
           </div>
         )}
+
+        <div className="task-form-row">
+          <label className="task-form-label">반복</label>
+          <select
+            className="task-form-date"
+            value={repeat}
+            onChange={(e) => setRepeat(e.target.value)}
+          >
+            <option value="none">반복 안 함</option>
+            <option value="daily">매일</option>
+            <option value="weekly">매주</option>
+            <option value="monthly">매월</option>
+            <option value="yearly">매년</option>
+          </select>
+        </div>
 
         <div className="task-form-section">
           <label className="task-form-label">체크리스트</label>
