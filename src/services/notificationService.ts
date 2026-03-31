@@ -6,7 +6,10 @@ import type { Routine, CalendarEvent, Task } from '../types'
 import { registerFCMToken } from './fcmService'
 import { useAuthStore } from '../store/authStore'
 
-let scheduledTimers: Map<string, number> = new Map()
+// 타입별로 타이머를 분리 관리
+const routineTimers: Map<string, number> = new Map()
+const eventTimers: Map<string, number> = new Map()
+const taskTimers: Map<string, number> = new Map()
 
 // 알림 권한 요청 + FCM 토큰 등록
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -90,16 +93,17 @@ function scheduleRoutineNotification(routine: Routine) {
 
   const timerId = window.setTimeout(() => {
     showNotification(routine.title, '루틴을 시작할 시간이에요!', routine.iconId)
-    scheduledTimers.delete(routine.id)
+    routineTimers.delete(routine.id)
   }, diff)
 
-  scheduledTimers.set(routine.id, timerId)
+  routineTimers.set(routine.id, timerId)
 }
 
 // 모든 루틴 알림 스케줄링 (루틴 목록이 변경될 때 호출)
 export function scheduleAllRoutineNotifications(routines: Routine[]) {
-  // 기존 타이머 모두 제거
-  clearAllScheduledNotifications()
+  // 루틴 타이머만 초기화 (일정/태스크 타이머는 유지!)
+  routineTimers.forEach((timerId) => window.clearTimeout(timerId))
+  routineTimers.clear()
 
   if (Notification.permission !== 'granted') return
 
@@ -110,8 +114,12 @@ export function scheduleAllRoutineNotifications(routines: Routine[]) {
 
 // 모든 스케줄된 알림 취소
 export function clearAllScheduledNotifications() {
-  scheduledTimers.forEach((timerId) => window.clearTimeout(timerId))
-  scheduledTimers.clear()
+  routineTimers.forEach((t) => window.clearTimeout(t))
+  eventTimers.forEach((t) => window.clearTimeout(t))
+  taskTimers.forEach((t) => window.clearTimeout(t))
+  routineTimers.clear()
+  eventTimers.clear()
+  taskTimers.clear()
 }
 
 // ── 일정/태스크 미리알림 ──
@@ -121,18 +129,28 @@ function timeToMinutes(time: string): number {
   return h * 60 + (m || 0)
 }
 
-function scheduleItemReminder(key: string, title: string, body: string, targetTime: Date) {
+function scheduleItemReminder(
+  timers: Map<string, number>,
+  key: string,
+  title: string,
+  body: string,
+  targetTime: Date,
+) {
   const diff = targetTime.getTime() - Date.now()
   if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return
 
   const timerId = window.setTimeout(() => {
     showNotification(title, body)
-    scheduledTimers.delete(key)
+    timers.delete(key)
   }, diff)
-  scheduledTimers.set(key, timerId)
+  timers.set(key, timerId)
 }
 
 export function scheduleEventNotifications(events: CalendarEvent[]) {
+  // 일정 타이머만 초기화
+  eventTimers.forEach((t) => window.clearTimeout(t))
+  eventTimers.clear()
+
   if (Notification.permission !== 'granted') return
 
   const today = new Date()
@@ -150,15 +168,17 @@ export function scheduleEventNotifications(events: CalendarEvent[]) {
     targetDate.setHours(0, targetMin, 0, 0)
 
     const key = `event-${event.id}`
-    if (scheduledTimers.has(key)) return
-
     const displayTitle = event.title === '(제목 없음)' ? '일정' : event.title
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(key, `📅 ${displayTitle}`, body, targetDate)
+    scheduleItemReminder(eventTimers, key, `📅 ${displayTitle}`, body, targetDate)
   })
 }
 
 export function scheduleTaskNotifications(tasks: Task[]) {
+  // 태스크 타이머만 초기화
+  taskTimers.forEach((t) => window.clearTimeout(t))
+  taskTimers.clear()
+
   if (Notification.permission !== 'granted') return
 
   const today = new Date()
@@ -176,9 +196,7 @@ export function scheduleTaskNotifications(tasks: Task[]) {
     targetDate.setHours(0, targetMin, 0, 0)
 
     const key = `task-${task.id}`
-    if (scheduledTimers.has(key)) return
-
     const body = reminderMin > 0 ? `${reminderMin}분 후 시작` : '지금 시작'
-    scheduleItemReminder(key, `✅ ${task.title}`, body, targetDate)
+    scheduleItemReminder(taskTimers, key, `✅ ${task.title}`, body, targetDate)
   })
 }
