@@ -213,16 +213,25 @@ export default function DashboardPage() {
 
   // 클라이언트 알림 스케줄링 (Cloud Function 서버 푸시 보완)
   useEffect(() => {
-    scheduleAllRoutineNotifications(routines)
-  }, [routines])
+    const hasReminders =
+      routines.some((r) => r.time && !r.isCompleted) ||
+      todayEvents.some((e) => e.reminder != null && !e.isAllDay && e.startTime) ||
+      todayTasks.some((t) => t.reminder != null && t.dueTime && !t.isCompleted)
 
-  useEffect(() => {
-    scheduleEventNotifications(todayEvents)
-  }, [todayEvents])
+    if (!hasReminders) return
 
-  useEffect(() => {
-    scheduleTaskNotifications(todayTasks)
-  }, [todayTasks])
+    // 알림 권한 요청 후 스케줄링
+    const setup = async () => {
+      if (getNotificationPermission() !== 'granted') {
+        const granted = await requestNotificationPermission()
+        if (!granted) return
+      }
+      scheduleAllRoutineNotifications(routines)
+      scheduleEventNotifications(todayEvents)
+      scheduleTaskNotifications(todayTasks)
+    }
+    setup()
+  }, [routines, todayEvents, todayTasks])
 
   useEffect(() => {
     return () => clearAllScheduledNotifications()
