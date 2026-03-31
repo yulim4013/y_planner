@@ -9,37 +9,45 @@ import {
   getDocs,
   Timestamp,
 } from 'firebase/firestore'
+import toast from 'react-hot-toast'
 import { getMessagingInstance, db } from '../config/firebase'
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || ''
 
 // FCM 토큰 발급 및 Firestore 저장
 export async function registerFCMToken(uid: string): Promise<string | null> {
-  if (!db || !VAPID_KEY) {
-    console.warn('[FCM] db/VAPID_KEY not available', {
-      db: !!db,
-      vapidKey: !!VAPID_KEY,
-    })
+  // Step 1: 기본 설정 확인
+  if (!db) {
+    toast.error('❌ Step1: DB 없음')
+    return null
+  }
+  if (!VAPID_KEY) {
+    toast.error('❌ Step1: VAPID 키 없음')
     return null
   }
 
   try {
+    // Step 2: Messaging 지원 확인
+    toast('🔍 Step2: Messaging 확인 중..', { duration: 2000 })
     const messaging = await getMessagingInstance()
     if (!messaging) {
-      console.warn('[FCM] Messaging not supported in this browser')
+      toast.error('❌ Step2: Messaging 미지원', { duration: 8000 })
       return null
     }
+    toast.success('✅ Step2: Messaging OK', { duration: 2000 })
 
-    // 기존 서비스 워커 등록 사용
+    // Step 3: 서비스워커 확인
     const swReg = await navigator.serviceWorker.getRegistration('/y_planner/')
       || await navigator.serviceWorker.getRegistration('/')
+      || await navigator.serviceWorker.ready
     if (!swReg) {
-      console.warn('[FCM] No service worker registration found')
+      toast.error('❌ Step3: SW 없음', { duration: 8000 })
       return null
     }
+    toast.success(`✅ Step3: SW scope=${swReg.scope.slice(-20)}`, { duration: 2000 })
 
-    console.log('[FCM] Requesting token with SW scope:', swReg.scope)
-
+    // Step 4: 토큰 발급
+    toast('🔍 Step4: 토큰 요청 중..', { duration: 2000 })
     const { getToken } = await import('firebase/messaging')
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
@@ -47,13 +55,12 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
     })
 
     if (!token) {
-      console.warn('[FCM] No token received')
+      toast.error('❌ Step4: 토큰 비어있음', { duration: 8000 })
       return null
     }
+    toast.success(`✅ Step4: 토큰 발급! ${token.slice(0, 15)}..`, { duration: 3000 })
 
-    console.log('[FCM] Token received:', token.slice(0, 20) + '...')
-
-    // Firestore에 토큰 저장
+    // Step 5: Firestore 저장
     const tokenRef = doc(db, 'users', uid, 'fcmTokens', token)
     await setDoc(tokenRef, {
       token,
@@ -62,10 +69,11 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
+    toast.success('✅ Step5: Firestore 저장 완료!', { duration: 3000 })
 
     return token
-  } catch (err) {
-    console.error('[FCM] Token registration failed:', err)
+  } catch (err: any) {
+    toast.error(`❌ FCM 에러: ${err?.message?.slice(0, 80) || err}`, { duration: 10000 })
     return null
   }
 }
@@ -78,7 +86,6 @@ export async function unregisterFCMTokens(uid: string) {
     const snapshot = await getDocs(tokensRef)
     const deletes = snapshot.docs.map((d) => deleteDoc(d.ref))
     await Promise.all(deletes)
-    console.log('[FCM] All tokens removed')
   } catch (err) {
     console.error('[FCM] Token cleanup failed:', err)
   }
@@ -92,12 +99,9 @@ export async function setupForegroundListener() {
 
     const { onMessage } = await import('firebase/messaging')
     onMessage(messaging, (payload) => {
-      console.log('[FCM] Foreground message:', payload)
-
       const { title, body } = payload.notification || {}
       if (!title) return
 
-      // 앱이 열려있을 때는 브라우저 Notification으로 표시
       if (Notification.permission === 'granted') {
         try {
           new Notification(title, {
@@ -106,7 +110,6 @@ export async function setupForegroundListener() {
             badge: '/y_planner/icons/icon-192x192.jpg',
           })
         } catch {
-          // Safari 등에서 Notification 생성자 미지원 시 SW 경유
           navigator.serviceWorker.controller?.postMessage({
             type: 'SHOW_NOTIFICATION',
             title,
@@ -115,7 +118,6 @@ export async function setupForegroundListener() {
         }
       }
     })
-    console.log('[FCM] Foreground listener set up')
   } catch (err) {
     console.warn('[FCM] Foreground listener setup failed:', err)
   }
