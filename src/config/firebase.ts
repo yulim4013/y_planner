@@ -2,7 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth'
 import { getFirestore, enableIndexedDbPersistence, type Firestore } from 'firebase/firestore'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
-import { getMessaging, type Messaging } from 'firebase/messaging'
+import type { Messaging } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,8 +19,9 @@ let app: FirebaseApp | null = null
 let auth: Auth | null = null
 let db: Firestore | null = null
 let storage: FirebaseStorage | null = null
-let messaging: Messaging | null = null
 let googleProvider: GoogleAuthProvider | null = null
+let _messaging: Messaging | null = null
+let _messagingChecked = false
 
 if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig)
@@ -28,13 +29,6 @@ if (isFirebaseConfigured) {
   googleProvider = new GoogleAuthProvider()
   db = getFirestore(app)
   storage = getStorage(app)
-
-  // Firebase Messaging 초기화 (지원하는 브라우저에서만)
-  try {
-    messaging = getMessaging(app)
-  } catch (err) {
-    console.warn('Firebase Messaging not supported:', err)
-  }
 
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
@@ -45,4 +39,27 @@ if (isFirebaseConfigured) {
   })
 }
 
-export { app, auth, googleProvider, db, storage, messaging }
+// Firebase Messaging - 비동기 lazy 초기화 (지원 여부 확인 후)
+export async function getMessagingInstance(): Promise<Messaging | null> {
+  if (_messagingChecked) return _messaging
+  _messagingChecked = true
+
+  if (!app) return null
+
+  try {
+    const { isSupported, getMessaging } = await import('firebase/messaging')
+    const supported = await isSupported()
+    if (!supported) {
+      console.warn('[FCM] This browser does not support Firebase Messaging')
+      return null
+    }
+    _messaging = getMessaging(app)
+    console.log('[FCM] Messaging initialized successfully')
+    return _messaging
+  } catch (err) {
+    console.warn('[FCM] Messaging init failed:', err)
+    return null
+  }
+}
+
+export { app, auth, googleProvider, db, storage }

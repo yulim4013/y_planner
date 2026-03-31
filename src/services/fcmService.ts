@@ -1,7 +1,6 @@
 // Firebase Cloud Messaging (FCM) 서비스
 // 잠금화면 푸시 알림을 위한 토큰 관리 및 메시지 처리
 
-import { getToken, onMessage, type MessagePayload } from 'firebase/messaging'
 import {
   doc,
   setDoc,
@@ -10,15 +9,14 @@ import {
   getDocs,
   Timestamp,
 } from 'firebase/firestore'
-import { messaging, db } from '../config/firebase'
+import { getMessagingInstance, db } from '../config/firebase'
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || ''
 
 // FCM 토큰 발급 및 Firestore 저장
 export async function registerFCMToken(uid: string): Promise<string | null> {
-  if (!messaging || !db || !VAPID_KEY) {
-    console.warn('[FCM] messaging/db/VAPID_KEY not available', {
-      messaging: !!messaging,
+  if (!db || !VAPID_KEY) {
+    console.warn('[FCM] db/VAPID_KEY not available', {
       db: !!db,
       vapidKey: !!VAPID_KEY,
     })
@@ -26,13 +24,23 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
   }
 
   try {
+    const messaging = await getMessagingInstance()
+    if (!messaging) {
+      console.warn('[FCM] Messaging not supported in this browser')
+      return null
+    }
+
     // 기존 서비스 워커 등록 사용
     const swReg = await navigator.serviceWorker.getRegistration('/y_planner/')
+      || await navigator.serviceWorker.getRegistration('/')
     if (!swReg) {
       console.warn('[FCM] No service worker registration found')
       return null
     }
 
+    console.log('[FCM] Requesting token with SW scope:', swReg.scope)
+
+    const { getToken } = await import('firebase/messaging')
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg,
@@ -77,31 +85,38 @@ export async function unregisterFCMTokens(uid: string) {
 }
 
 // 포그라운드 메시지 리스너 설정 (앱이 열려있을 때 푸시 수신)
-export function setupForegroundListener() {
-  if (!messaging) return
+export async function setupForegroundListener() {
+  try {
+    const messaging = await getMessagingInstance()
+    if (!messaging) return
 
-  onMessage(messaging, (payload: MessagePayload) => {
-    console.log('[FCM] Foreground message:', payload)
+    const { onMessage } = await import('firebase/messaging')
+    onMessage(messaging, (payload) => {
+      console.log('[FCM] Foreground message:', payload)
 
-    const { title, body } = payload.notification || {}
-    if (!title) return
+      const { title, body } = payload.notification || {}
+      if (!title) return
 
-    // 앱이 열려있을 때는 브라우저 Notification으로 표시
-    if (Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body: body || '',
-          icon: '/y_planner/icons/icon-192x192.jpg',
-          badge: '/y_planner/icons/icon-192x192.jpg',
-        })
-      } catch {
-        // Safari 등에서 Notification 생성자 미지원 시 SW 경유
-        navigator.serviceWorker.controller?.postMessage({
-          type: 'SHOW_NOTIFICATION',
-          title,
-          body: body || '',
-        })
+      // 앱이 열려있을 때는 브라우저 Notification으로 표시
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification(title, {
+            body: body || '',
+            icon: '/y_planner/icons/icon-192x192.jpg',
+            badge: '/y_planner/icons/icon-192x192.jpg',
+          })
+        } catch {
+          // Safari 등에서 Notification 생성자 미지원 시 SW 경유
+          navigator.serviceWorker.controller?.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title,
+            body: body || '',
+          })
+        }
       }
-    }
-  })
+    })
+    console.log('[FCM] Foreground listener set up')
+  } catch (err) {
+    console.warn('[FCM] Foreground listener setup failed:', err)
+  }
 }
