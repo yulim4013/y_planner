@@ -55,7 +55,7 @@ export default function MonthlyView({ currentDate, events, tasks, transactions =
       start.setHours(0, 0, 0, 0)
       end.setHours(23, 59, 59, 999)
       if (day >= start && day <= end) return true
-      return matchesRepeatDate(start, day, e.repeat)
+      return matchesRepeatDate(start, day, e.repeat, e.repeatEndDate)
     })
     if (hasEvent) dots.push('event')
 
@@ -63,7 +63,7 @@ export default function MonthlyView({ currentDate, events, tasks, transactions =
       if (!t.dueDate) return false
       if (isSameDay(t.dueDate.toDate(), day)) return true
       if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
-        return matchesRepeatDate(t.dueDate.toDate(), day, t.repeat)
+        return matchesRepeatDate(t.dueDate.toDate(), day, t.repeat, t.repeatEndDate)
       }
       return false
     })

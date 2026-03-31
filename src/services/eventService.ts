@@ -47,6 +47,7 @@ export async function addEvent(data: {
   location?: string
   reminder?: number | null
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  repeatEndDate?: Date | null
 }) {
   const ref = getEventsRef()
   if (!ref) return null
@@ -63,6 +64,7 @@ export async function addEvent(data: {
     categoryId: data.categoryId || null,
     location: data.location || '',
     repeat: data.repeat || 'none',
+    repeatEndDate: data.repeatEndDate ? Timestamp.fromDate(data.repeatEndDate) : null,
     reminder: data.reminder ?? null,
     createdAt: now,
     updatedAt: now,

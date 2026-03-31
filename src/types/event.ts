@@ -12,6 +12,7 @@ export interface CalendarEvent {
   categoryId: string | null
   location: string
   repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  repeatEndDate: Timestamp | null
   reminder: number | null
   createdAt: Timestamp
   updatedAt: Timestamp

@@ -1,14 +1,18 @@
+import { Timestamp } from 'firebase/firestore'
+
 /**
  * 반복 일정/태스크가 특정 날짜에 해당하는지 확인
  * @param originalDate 원본 시작 날짜
  * @param targetDate 확인할 날짜
  * @param repeat 반복 유형
+ * @param repeatEndDate 반복 종료일 (없으면 무한 반복)
  * @returns 해당 날짜에 반복 인스턴스가 있는지
  */
 export function matchesRepeatDate(
   originalDate: Date,
   targetDate: Date,
   repeat: string | undefined,
+  repeatEndDate?: Timestamp | Date | null,
 ): boolean {
   if (!repeat || repeat === 'none') return false
 
@@ -19,6 +23,16 @@ export function matchesRepeatDate(
   target.setHours(0, 0, 0, 0)
 
   if (target.getTime() <= orig.getTime()) return false
+
+  // 반복 종료일 체크
+  if (repeatEndDate) {
+    const endDate = repeatEndDate instanceof Date
+      ? repeatEndDate
+      : repeatEndDate.toDate()
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+    if (target.getTime() > end.getTime()) return false
+  }
 
   switch (repeat) {
     case 'daily':

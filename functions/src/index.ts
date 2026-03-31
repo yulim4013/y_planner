@@ -166,13 +166,20 @@ function timeToMinutes(time: string): number {
 /**
  * 반복 일정/태스크가 특정 날짜에 해당하는지 확인
  */
-function matchesRepeatDate(originalDate: Date, todayStr: string, repeat: string): boolean {
+function matchesRepeatDate(originalDate: Date, todayStr: string, repeat: string, repeatEndDate?: admin.firestore.Timestamp | null): boolean {
   if (!repeat || repeat === 'none') return false
   const orig = new Date(originalDate)
   orig.setHours(0, 0, 0, 0)
   const [ty, tm, td] = todayStr.split('-').map(Number)
   const target = new Date(ty, tm - 1, td)
   if (target.getTime() <= orig.getTime()) return false
+
+  // 반복 종료일 체크
+  if (repeatEndDate) {
+    const endDate = repeatEndDate.toDate()
+    endDate.setHours(23, 59, 59, 999)
+    if (target.getTime() > endDate.getTime()) return false
+  }
 
   switch (repeat) {
     case 'daily': return true
@@ -258,6 +265,7 @@ export const sendScheduledNotifications = functions
 
       const processedIds = new Set<string>()
       const allEventDocs = [...todaySnap.docs, ...repeatSnap.docs]
+      console.log(`[Push] Events: ${todaySnap.size} today, ${repeatSnap.size} repeating, ${allEventDocs.length} total`)
 
       allEventDocs.forEach((doc) => {
         if (processedIds.has(doc.id)) return
@@ -270,7 +278,7 @@ export const sendScheduledNotifications = functions
         const startDate = data.startDate.toDate()
         const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
         const isToday = startStr === todayStr
-        const isRepeatMatch = !isToday && matchesRepeatDate(startDate, todayStr, data.repeat)
+        const isRepeatMatch = !isToday && matchesRepeatDate(startDate, todayStr, data.repeat, data.repeatEndDate)
 
         if (!isToday && !isRepeatMatch) return
 
@@ -303,7 +311,7 @@ export const sendScheduledNotifications = functions
           const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
           if (ds !== todayStr) {
             // 반복 태스크인 경우 오늘 매칭 확인
-            if (!matchesRepeatDate(d, todayStr, data.repeat)) return
+            if (!matchesRepeatDate(d, todayStr, data.repeat, data.repeatEndDate)) return
           }
         }
 

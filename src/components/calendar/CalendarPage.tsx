@@ -76,7 +76,7 @@ export default function CalendarPage() {
     // 원본 날짜 매칭
     if (selectedDate >= start && selectedDate <= end) return true
     // 반복 일정 매칭
-    return matchesRepeatDate(start, selectedDate, e.repeat)
+    return matchesRepeatDate(start, selectedDate, e.repeat, e.repeatEndDate)
   })
 
   const dayTasks = tasks.filter((t) => {
@@ -85,7 +85,7 @@ export default function CalendarPage() {
     if (isSameDay(t.dueDate.toDate(), selectedDate)) return true
     // 반복 태스크 매칭 (완료되지 않은 반복 태스크만)
     if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
-      return matchesRepeatDate(t.dueDate.toDate(), selectedDate, t.repeat)
+      return matchesRepeatDate(t.dueDate.toDate(), selectedDate, t.repeat, t.repeatEndDate)
     }
     return false
   })

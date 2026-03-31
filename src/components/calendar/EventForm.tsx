@@ -33,6 +33,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [reminder, setReminder] = useState<string>('')
   const [repeat, setRepeat] = useState<string>('none')
+  const [repeatEndDate, setRepeatEndDate] = useState<string>('')
 
   useEffect(() => {
     if (editEvent) {
@@ -47,6 +48,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       setLocation(editEvent.location || '')
       setReminder(editEvent.reminder != null ? String(editEvent.reminder) : '')
       setRepeat(editEvent.repeat || 'none')
+      setRepeatEndDate(editEvent.repeatEndDate ? toDateInput(editEvent.repeatEndDate.toDate()) : '')
     } else {
       resetForm()
     }
@@ -75,6 +77,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
     setCategoryId(null)
     setReminder('')
     setRepeat('none')
+    setRepeatEndDate('')
   }
 
   const handleSubmit = async () => {
@@ -92,6 +95,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
       location: location.trim(),
       reminder: reminder ? parseInt(reminder, 10) : null,
       repeat: repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
+      repeatEndDate: repeatEndDate ? new Date(repeatEndDate + 'T00:00:00') : null,
     }
 
     if (editEvent) {
@@ -99,6 +103,7 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
         ...data,
         startDate: Timestamp.fromDate(data.startDate),
         endDate: Timestamp.fromDate(data.endDate),
+        repeatEndDate: data.repeatEndDate ? Timestamp.fromDate(data.repeatEndDate) : null,
       })
     } else {
       await addEvent(data)
@@ -240,7 +245,10 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
           <select
             className="event-form-date"
             value={repeat}
-            onChange={(e) => setRepeat(e.target.value)}
+            onChange={(e) => {
+              setRepeat(e.target.value)
+              if (e.target.value === 'none') setRepeatEndDate('')
+            }}
           >
             <option value="none">반복 안 함</option>
             <option value="daily">매일</option>
@@ -249,6 +257,19 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
             <option value="yearly">매년</option>
           </select>
         </div>
+
+        {repeat !== 'none' && (
+          <div className="event-form-row">
+            <label className="event-form-label">반복 종료일</label>
+            <input
+              type="date"
+              className="event-form-date"
+              value={repeatEndDate}
+              onChange={(e) => setRepeatEndDate(e.target.value)}
+              placeholder="없음 (무한 반복)"
+            />
+          </div>
+        )}
 
         <textarea
           className="event-form-textarea"

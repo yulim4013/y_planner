@@ -23,6 +23,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
   const [newSubItem, setNewSubItem] = useState('')
   const [reminder, setReminder] = useState<string>('')
   const [repeat, setRepeat] = useState<string>('none')
+  const [repeatEndDate, setRepeatEndDate] = useState<string>('')
 
   useEffect(() => {
     if (editTask) {
@@ -34,6 +35,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       setDueTime(editTask.dueTime || '')
       setReminder(editTask.reminder != null ? String(editTask.reminder) : '')
       setRepeat(editTask.repeat || 'none')
+      setRepeatEndDate(editTask.repeatEndDate ? formatDateInput(editTask.repeatEndDate.toDate()) : '')
       setSubItems(editTask.subItems || [])
     } else {
       resetForm()
@@ -54,6 +56,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     setDueTime('')
     setReminder('')
     setRepeat('none')
+    setRepeatEndDate('')
     setSubItems([])
     setNewSubItem('')
   }
@@ -105,6 +108,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       categoryId: categoryId || null,
       reminder: reminder ? parseInt(reminder, 10) : null,
       repeat: repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
+      repeatEndDate: repeatEndDate ? new Date(repeatEndDate + 'T00:00:00') : null,
       subItems: plainSubItems,
     }
 
@@ -112,6 +116,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
       await updateTask(editTask.id, {
         ...data,
         dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
+        repeatEndDate: data.repeatEndDate ? Timestamp.fromDate(data.repeatEndDate) : null,
       })
     } else {
       await addTask(data)
@@ -209,7 +214,10 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
           <select
             className="task-form-date"
             value={repeat}
-            onChange={(e) => setRepeat(e.target.value)}
+            onChange={(e) => {
+              setRepeat(e.target.value)
+              if (e.target.value === 'none') setRepeatEndDate('')
+            }}
           >
             <option value="none">반복 안 함</option>
             <option value="daily">매일</option>
@@ -218,6 +226,18 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
             <option value="yearly">매년</option>
           </select>
         </div>
+
+        {repeat !== 'none' && (
+          <div className="task-form-row">
+            <label className="task-form-label">반복 종료일</label>
+            <input
+              type="date"
+              className="task-form-date"
+              value={repeatEndDate}
+              onChange={(e) => setRepeatEndDate(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="task-form-section">
           <label className="task-form-label">체크리스트</label>

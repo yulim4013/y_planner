@@ -186,7 +186,7 @@ export default function DashboardPage() {
     if (d >= todayStart && d <= todayEnd) return true
     // 반복 태스크 (완료되지 않은 것만)
     if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
-      return matchesRepeatDate(d, today, t.repeat)
+      return matchesRepeatDate(d, today, t.repeat, t.repeatEndDate)
     }
     return false
   })
@@ -197,7 +197,7 @@ export default function DashboardPage() {
     const start = e.startDate.toDate(); start.setHours(0, 0, 0, 0)
     const end = e.endDate.toDate(); end.setHours(23, 59, 59, 999)
     if (today >= start && today <= end) return true
-    return matchesRepeatDate(start, today, e.repeat)
+    return matchesRepeatDate(start, today, e.repeat, e.repeatEndDate)
   }).sort((a, b) => {
     if (a.isAllDay && !b.isAllDay) return -1
     if (!a.isAllDay && b.isAllDay) return 1

@@ -71,6 +71,7 @@ export async function addTask(data: {
   projectId?: string | null
   reminder?: number | null
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  repeatEndDate?: Date | null
   subItems?: { id: string; text: string; isCompleted: boolean; order: number }[]
 }) {
   const ref = getTasksRef()
@@ -88,6 +89,7 @@ export async function addTask(data: {
     categoryId: data.categoryId || null,
     reminder: data.reminder ?? null,
     repeat: data.repeat || 'none',
+    repeatEndDate: data.repeatEndDate ? Timestamp.fromDate(data.repeatEndDate) : null,
     subItems: data.subItems || [],
     isCompleted: false,
     completedAt: null,
