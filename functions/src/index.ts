@@ -253,17 +253,15 @@ export const sendScheduledNotifications = functions
 
     // 2. 일정 알림 (오늘 날짜 + 반복 일정)
     try {
-      // 알림이 설정된 모든 이벤트 조회 (단일 쿼리로 단순화)
-      const eventSnap = await userRef.collection('events')
-        .where('reminder', '!=', null)
-        .get()
-      const withTime = eventSnap.docs.filter((d) => {
+      // 모든 이벤트 조회 후 코드에서 필터
+      const eventSnap = await userRef.collection('events').get()
+      const withReminder = eventSnap.docs.filter((d) => {
         const data = d.data()
-        return !data.isAllDay && data.startTime
+        return !data.isAllDay && data.startTime && data.reminder != null
       })
-      console.log(`[Push] Events: ${eventSnap.size} with reminder, ${withTime.length} with time`)
+      console.log(`[Push] Events: ${eventSnap.size} total, ${withReminder.length} with reminder+time`)
 
-      withTime.forEach((doc) => {
+      withReminder.forEach((doc) => {
         const data = doc.data()
         const startDate = data.startDate.toDate()
         const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
