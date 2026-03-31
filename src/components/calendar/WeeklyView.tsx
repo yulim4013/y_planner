@@ -17,7 +17,9 @@ interface WeeklyViewProps {
   tasks: Task[]  // ALL tasks
   categories: Category[]
   selectedDate: Date
+  selectedItemId: string | null
   onSelectDate: (date: Date) => void
+  onSelectItem: (type: 'event' | 'task', id: string) => void
   onEditEvent: (event: CalendarEvent) => void
   onEditTask: (task: Task) => void
   onAddEventAtTime: (date: Date, startTime: string) => void
@@ -60,7 +62,9 @@ export default function WeeklyView({
   tasks,
   categories,
   selectedDate,
+  selectedItemId,
   onSelectDate,
+  onSelectItem,
   onEditEvent,
   onEditTask,
   onAddEventAtTime,
@@ -100,7 +104,22 @@ export default function WeeklyView({
       const timedTasks = dayTasks.filter((t) => t.dueTime)
       const untimedTasks = dayTasks.filter((t) => !t.dueTime)
 
-      return { day, timedEvents, allDayEvents, timedTasks, untimedTasks }
+      // 같은 시작시간 아이템 컬럼 분할
+      const colMap = new Map<string, { col: number; total: number }>()
+      const byStart = new Map<number, string[]>()
+      timedEvents.forEach((e) => {
+        const start = timeToMinutes(e.startTime!)
+        const g = byStart.get(start) || []; g.push(e.id); byStart.set(start, g)
+      })
+      timedTasks.forEach((t) => {
+        const start = timeToMinutes(t.dueTime!)
+        const g = byStart.get(start) || []; g.push(t.id); byStart.set(start, g)
+      })
+      for (const [, group] of byStart) {
+        group.forEach((id, i) => colMap.set(id, { col: i, total: group.length }))
+      }
+
+      return { day, timedEvents, allDayEvents, timedTasks, untimedTasks, colMap }
     })
   }, [days, events, tasks])
 
@@ -277,18 +296,28 @@ export default function WeeklyView({
                     const endMin = ev.endTime ? timeToMinutes(ev.endTime) : startMin + 60
                     const top = (startMin / 60) * HOUR_HEIGHT
                     const height = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT, 20)
+                    const col = dd.colMap.get(ev.id)
+                    const colStyle = col && col.total > 1
+                      ? { left: `calc(${col.col} * (100% - 4px) / ${col.total} + 2px)`, width: `calc((100% - 4px) / ${col.total})`, right: 'auto' as const }
+                      : {}
+                    const isSelected = selectedItemId === ev.id
 
                     return (
                       <div
                         key={ev.id}
-                        className="wv-event-block"
+                        className={`wv-event-block ${isSelected ? 'wv-selected-item' : ''}`}
                         style={{
                           top,
                           height,
                           background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.13)',
                           borderLeft: `3px solid ${cat?.color || '#64B5F6'}`,
+                          ...colStyle,
                         }}
                         onClick={(e) => {
+                          e.stopPropagation()
+                          onSelectItem('event', ev.id)
+                        }}
+                        onDoubleClick={(e) => {
                           e.stopPropagation()
                           onEditEvent(ev)
                         }}
@@ -311,12 +340,25 @@ export default function WeeklyView({
                     const cat = getCat(task.categoryId)
                     const min = task.dueTime ? timeToMinutes(task.dueTime) : 0
                     const top = (min / 60) * HOUR_HEIGHT
+                    const col = dd.colMap.get(task.id)
+                    const colStyle = col && col.total > 1
+                      ? { left: `calc(${col.col} * (100% - 4px) / ${col.total} + 2px)`, width: `calc((100% - 4px) / ${col.total})`, right: 'auto' as const }
+                      : {}
+                    const isSelected = selectedItemId === task.id
 
                     return (
                       <div
                         key={task.id}
-                        className={`wv-task-row ${task.isCompleted ? 'wv-done' : ''}`}
-                        style={{ top }}
+                        className={`wv-task-row ${task.isCompleted ? 'wv-done' : ''} ${isSelected ? 'wv-selected-item' : ''}`}
+                        style={{ top, ...colStyle }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSelectItem('task', task.id)
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          onEditTask(task)
+                        }}
                       >
                         <button
                           className={`wv-check ${task.isCompleted ? 'done' : ''}`}
@@ -329,13 +371,7 @@ export default function WeeklyView({
                             <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                           )}
                         </button>
-                        <span
-                          className="wv-task-title"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEditTask(task)
-                          }}
-                        >
+                        <span className="wv-task-title">
                           {cat && <span style={{ color: cat.color, marginRight: 2 }}>{cat.icon}</span>}
                           {task.title}
                         </span>

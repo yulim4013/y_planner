@@ -20,6 +20,8 @@ interface TimelineViewProps {
   routines?: Routine[]
   categories?: Category[]
   sleepInfo?: SleepInfo
+  selectedItemId?: string | null
+  onSelectItem?: (type: 'event' | 'task', id: string) => void
   onEditEvent: (event: CalendarEvent) => void
   onEditTask: (task: Task) => void
   onMoveItem?: (type: 'task' | 'event', id: string) => void
@@ -76,7 +78,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, selectedItemId, onSelectItem, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -324,12 +326,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
         document.addEventListener('mouseup', onUp)
         preMouseRef.current = { moveFn: onMove, upFn: onUp }
       },
-      onDoubleClick: (e: React.MouseEvent) => {
-        e.stopPropagation()
-        if (type === 'event') {
-          setActiveEventId(activeEventId === id ? null : id)
-        }
-      },
     }
   }
 
@@ -357,41 +353,21 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const completedRoutines = routines.filter((r) => r.isCompleted && r.checkedAt)
 
   const buildEventGroups = () => {
-    const groupedTaskIds = new Set<string>()
+    // 카테고리 무관: 모든 이벤트/태스크를 독립 아이템으로 처리
     const groups = timedEvents.map((event) => {
       const eventCat = getCat(event.categoryId)
-      const linkedTaskCatIds = new Set(
-        categories.filter((c) => (c.type === 'task' || c.type === 'all') && c.eventCategoryId === event.categoryId).map((c) => c.id)
-      )
-      const startMin = timeToMinutes(event.startTime!)
-      const endMin = event.endTime ? timeToMinutes(event.endTime) : startMin + 60
-      const matchingTasks = tasks.filter((t) => {
-        if (!t.categoryId || !linkedTaskCatIds.has(t.categoryId)) return false
-        if (groupedTaskIds.has(t.id)) return false
-        const taskTime = t.isCompleted && t.completedTime ? t.completedTime : t.dueTime
-        if (!taskTime) return true
-        const taskMin = timeToMinutes(taskTime)
-        return taskMin >= startMin && taskMin <= endMin
-      }).sort((a, b) => {
-        const aTime = a.isCompleted && a.completedTime ? a.completedTime : a.dueTime || '99:99'
-        const bTime = b.isCompleted && b.completedTime ? b.completedTime : b.dueTime || '99:99'
-        return timeToMinutes(aTime) - timeToMinutes(bTime)
-      })
-      matchingTasks.forEach((t) => groupedTaskIds.add(t.id))
-      return { event, eventCat, tasks: matchingTasks }
+      return { event, eventCat, tasks: [] as Task[] }
     })
-    const ungrouped = tasks.filter((t) => (t.dueTime || (t.isCompleted && t.completedTime)) && !groupedTaskIds.has(t.id))
+    const allTimedTasks = tasks.filter((t) => t.dueTime || (t.isCompleted && t.completedTime))
     const untimedTasks = tasks.filter((t) => !t.dueTime && !(t.isCompleted && t.completedTime))
-    return { groups, ungrouped, untimedTasks }
+    return { groups, ungrouped: allTimedTasks, untimedTasks }
   }
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 이벤트 + 단독 태스크: 동일 시작시간인 경우에만 나란히 분할
+  // 이벤트 + 태스크: 동일 시작시간이면 카테고리 무관하게 나란히 분할
   const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
-
-    // 모든 아이템을 시작시간(분) 기준으로 그룹핑
     const byStart = new Map<number, string[]>()
 
     eventGroups.forEach((g) => {
@@ -409,7 +385,6 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       byStart.set(start, group)
     })
 
-    // 같은 시작시간 그룹에 2개 이상이면 컬럼 분할
     for (const [, group] of byStart) {
       group.forEach((id, i) => {
         cols.set(id, { col: i, total: group.length })
@@ -519,10 +494,23 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       return
     }
     if (actionBar || draggedId) return
-    // 싱글 탭 → 바로 수정 폼 열기
     if (activeEventId) setActiveEventId(null)
-    if (type === 'event') onEditEvent(item as CalendarEvent)
-    else onEditTask(item as Task)
+    // 싱글 클릭 → 선택 (더블 클릭은 수정)
+    if (onSelectItem) onSelectItem(type, item.id)
+    else {
+      if (type === 'event') onEditEvent(item as CalendarEvent)
+      else onEditTask(item as Task)
+    }
+  }
+
+  const handleItemDoubleClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
+    // 이벤트 더블 클릭 시 리사이즈 활성화도 함께 토글
+    if (type === 'event') {
+      setActiveEventId(activeEventId === item.id ? null : item.id)
+      onEditEvent(item as CalendarEvent)
+    } else {
+      onEditTask(item as Task)
+    }
   }
 
   // 그리드 빈 칸: 꾹 누르기(touch) / 더블클릭(mouse)으로 일정 추가
@@ -718,8 +706,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             return (
               <div
                 key={event.id}
-                className={`tl-allday-item ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
+                className={`tl-allday-item ${actionBar?.id === event.id || selectedItemId === event.id ? 'tl-selected' : ''}`}
                 onClick={() => handleItemClick('event', event)}
+                onDoubleClick={() => handleItemDoubleClick('event', event)}
                 style={{ borderLeftColor: cat?.color || '#64B5F6', background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.1)' }}
               >
                 <span className="tl-allday-title">
@@ -740,8 +729,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             return (
               <div
                 key={task.id}
-                className={`tl-untimed-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                className={`tl-untimed-task ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
                 onClick={() => handleItemClick('task', task)}
+                onDoubleClick={() => handleItemDoubleClick('task', task)}
               >
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
@@ -845,7 +835,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             return (
               <div
                 key={event.id}
-                className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${isActive ? 'tl-active' : ''} ${actionBar?.id === event.id ? 'tl-selected' : ''}`}
+                className={`tl-event-block ${isDragging ? 'tl-dragging' : ''} ${isActive ? 'tl-active' : ''} ${actionBar?.id === event.id || selectedItemId === event.id ? 'tl-selected' : ''}`}
                 style={{
                   top: blockTop,
                   minHeight,
@@ -856,8 +846,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   ...(isResizing ? { zIndex: 100 } : {}),
                 }}
 
-                onClick={() => handleItemClick('event', event)}
                 {...handlers}
+                onClick={() => handleItemClick('event', event)}
+                onDoubleClick={() => handleItemDoubleClick('event', event)}
               >
                 {/* Top resize handle - only when active */}
                 {isActive && <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />}
@@ -891,9 +882,10 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                       return (
                         <div
                           key={task.id}
-                          className={`tl-nested-task ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                          className={`tl-nested-task ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
                           style={taskCat ? { borderLeft: `3px solid ${taskCat.color}` } : undefined}
                           onClick={(e) => { e.stopPropagation(); handleItemClick('task', task) }}
+                          onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick('task', task) }}
                           onTouchStart={(e) => { e.stopPropagation(); taskHandlers.onTouchStart(e) }}
                           onTouchMove={taskHandlers.onTouchMove}
                           onTouchEnd={taskHandlers.onTouchEnd}
@@ -942,14 +934,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             return (
               <div
                 key={task.id}
-                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id ? 'tl-selected' : ''}`}
+                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
                 style={{
                   top,
                   ...colStyle,
                   ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                 }}
-                onClick={() => handleItemClick('task', task)}
                 {...handlers}
+                onClick={() => handleItemClick('task', task)}
+                onDoubleClick={() => handleItemDoubleClick('task', task)}
               >
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}

@@ -385,3 +385,10 @@
   height: 2px;
   background: #FF4444;
 }
+
+/* ---- Selected item highlight ---- */
+.wv-selected-item {
+  outline: 2px solid var(--color-text);
+  outline-offset: -1px;
+  z-index: 8 !important;
+}

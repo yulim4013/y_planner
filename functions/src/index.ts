@@ -165,7 +165,7 @@ async function sendPush(subs: { id: string; sub: PushSub }[], title: string, bod
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: sub.keys },
         payload,
-        { TTL: 60 * 60 }, // 1시간 유효
+        { TTL: 5 * 60 }, // 5분 유효 (앱 재진입 시 stale 알림 방지)
       )
       console.log(`[Push] Sent to ${id}`)
     } catch (err: any) {

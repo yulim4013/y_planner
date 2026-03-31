@@ -14,8 +14,8 @@ import TimelineView from './TimelineView'
 import WeeklyView from './WeeklyView'
 import EventForm from './EventForm'
 import TaskForm from '../tasks/TaskForm'
-import { subscribeEvents, updateEvent } from '../../services/eventService'
-import { subscribeTasks, updateTask } from '../../services/taskService'
+import { subscribeEvents, updateEvent, deleteEvent as deleteEventService, addEvent } from '../../services/eventService'
+import { subscribeTasks, updateTask, deleteTask as deleteTaskService, addTask } from '../../services/taskService'
 import { subscribeCategories } from '../../services/categoryService'
 import { subscribeRoutinesByDate } from '../../services/routineService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
@@ -43,6 +43,8 @@ export default function CalendarPage() {
   const [movingItem, setMovingItem] = useState<{ type: 'task' | 'event'; id: string } | null>(null)
   const [showAddPicker, setShowAddPicker] = useState(false)
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([])
+  const [selectedItem, setSelectedItem] = useState<{ type: 'event' | 'task'; id: string } | null>(null)
+  const [copiedItem, setCopiedItem] = useState<{ type: 'event' | 'task'; data: CalendarEvent | Task } | null>(null)
 
   // Current month string for transactions
   const currentMonthStr = format(currentDate, 'yyyy-MM')
@@ -303,6 +305,93 @@ export default function CalendarPage() {
     return { hasEvent, hasTask }
   }
 
+  // 키보드 단축키: Backspace(삭제), Cmd+C(복사), Cmd+V(붙여넣기), Esc(선택 해제)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Esc → 선택 해제 (폼이 열려있으면 폼이 처리)
+      if (e.key === 'Escape') {
+        if (!eventFormOpen && !taskFormOpen) {
+          setSelectedItem(null)
+        }
+        return
+      }
+
+      // 폼이 열려있으면 단축키 무시
+      if (eventFormOpen || taskFormOpen) return
+
+      // Backspace/Delete → 선택된 아이템 삭제
+      if ((e.key === 'Backspace' || e.key === 'Delete') && selectedItem) {
+        e.preventDefault()
+        const itemTitle = selectedItem.type === 'task'
+          ? tasks.find((t) => t.id === selectedItem.id)?.title
+          : events.find((ev) => ev.id === selectedItem.id)?.title
+        if (confirm(`"${itemTitle}" 삭제하시겠습니까?`)) {
+          if (selectedItem.type === 'task') deleteTaskService(selectedItem.id)
+          else deleteEventService(selectedItem.id)
+        }
+        setSelectedItem(null)
+        return
+      }
+
+      // Cmd+C / Ctrl+C → 복사
+      if (e.key === 'c' && (e.metaKey || e.ctrlKey) && selectedItem) {
+        e.preventDefault()
+        if (selectedItem.type === 'event') {
+          const ev = events.find((e) => e.id === selectedItem.id)
+          if (ev) setCopiedItem({ type: 'event', data: ev })
+        } else {
+          const t = tasks.find((t) => t.id === selectedItem.id)
+          if (t) setCopiedItem({ type: 'task', data: t })
+        }
+        return
+      }
+
+      // Cmd+V / Ctrl+V → 붙여넣기
+      if (e.key === 'v' && (e.metaKey || e.ctrlKey) && copiedItem) {
+        e.preventDefault()
+        if (copiedItem.type === 'event') {
+          const src = copiedItem.data as CalendarEvent
+          addEvent({
+            title: src.title,
+            description: src.description || '',
+            startDate: new Date(selectedDate),
+            endDate: new Date(selectedDate),
+            startTime: src.startTime || null,
+            endTime: src.endTime || null,
+            isAllDay: src.isAllDay,
+            categoryId: src.categoryId || null,
+            location: src.location || '',
+            reminder: src.reminder ?? null,
+            repeat: 'none',
+            repeatEndDate: null,
+          })
+        } else {
+          const src = copiedItem.data as Task
+          addTask({
+            title: src.title,
+            description: src.description || '',
+            dueDate: new Date(selectedDate),
+            dueTime: src.dueTime || null,
+            priority: src.priority || 'medium',
+            categoryId: src.categoryId || null,
+            reminder: src.reminder ?? null,
+            repeat: 'none',
+            repeatEndDate: null,
+          })
+        }
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedItem, copiedItem, eventFormOpen, taskFormOpen, events, tasks, selectedDate])
+
+  // 선택 핸들러
+  const handleSelectItem = useCallback((type: 'event' | 'task', id: string) => {
+    setSelectedItem((prev) => prev?.id === id ? null : { type, id })
+  }, [])
+
   // 이동 중인 아이템 이름
   const movingItemName = movingItem
     ? movingItem.type === 'task'
@@ -468,6 +557,8 @@ export default function CalendarPage() {
               routines={routines}
               categories={categories}
               sleepInfo={sleepInfo}
+              selectedItemId={selectedItem?.id ?? null}
+              onSelectItem={handleSelectItem}
               onEditEvent={handleEditEvent}
               onEditTask={handleEditTask}
               onAddEventAtTime={handleAddEventAtTime}
@@ -486,7 +577,9 @@ export default function CalendarPage() {
             tasks={tasks}
             categories={categories}
             selectedDate={selectedDate}
+            selectedItemId={selectedItem?.id ?? null}
             onSelectDate={handleSelectDate}
+            onSelectItem={handleSelectItem}
             onEditEvent={handleEditEvent}
             onEditTask={handleEditTask}
             onAddEventAtTime={handleAddEventAtTimeForDay}

@@ -135,6 +135,11 @@ export async function toggleTaskComplete(taskId: string, isCompleted: boolean, h
     updates.dueDate = Timestamp.fromDate(today)
   }
 
+  // 시간 미지정 태스크 완료 시 → 완료 시각을 dueTime으로 기록 (종일→시간 슬롯 이동)
+  if (willComplete && completedTime) {
+    updates.dueTime = completedTime
+  }
+
   const taskDoc = doc(ref, taskId)
   await updateDoc(taskDoc, updates)
 }
@@ -170,6 +175,8 @@ export async function toggleSubItem(
       today.setHours(0, 0, 0, 0)
       updates.dueDate = Timestamp.fromDate(today)
     }
+    // 시간 미지정 태스크 → 완료 시각을 dueTime으로 기록
+    updates.dueTime = updates.completedTime
   } else {
     // 체크리스트 항목 하나라도 해제하면 task도 미완료로
     updates.isCompleted = false
