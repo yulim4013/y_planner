@@ -253,28 +253,18 @@ export const sendScheduledNotifications = functions
 
     // 2. 일정 알림 (오늘 날짜 + 반복 일정)
     try {
-      // 오늘 날짜 일정
-      const todaySnap = await userRef.collection('events')
-        .where('startDate', '>=', admin.firestore.Timestamp.fromDate(todayStart))
-        .where('startDate', '<=', admin.firestore.Timestamp.fromDate(todayEnd))
+      // 알림이 설정된 모든 이벤트 조회 (단일 쿼리로 단순화)
+      const eventSnap = await userRef.collection('events')
+        .where('reminder', '!=', null)
         .get()
-      // 반복 일정 (오늘이 아닌 원본 날짜)
-      const repeatSnap = await userRef.collection('events')
-        .where('repeat', 'in', ['daily', 'weekly', 'monthly', 'yearly'])
-        .get()
+      const withTime = eventSnap.docs.filter((d) => {
+        const data = d.data()
+        return !data.isAllDay && data.startTime
+      })
+      console.log(`[Push] Events: ${eventSnap.size} with reminder, ${withTime.length} with time`)
 
-      const processedIds = new Set<string>()
-      const allEventDocs = [...todaySnap.docs, ...repeatSnap.docs]
-      console.log(`[Push] Events: ${todaySnap.size} today, ${repeatSnap.size} repeating, ${allEventDocs.length} total`)
-
-      allEventDocs.forEach((doc) => {
-        if (processedIds.has(doc.id)) return
-        processedIds.add(doc.id)
-
+      withTime.forEach((doc) => {
         const data = doc.data()
-        if (data.isAllDay || !data.startTime || data.reminder == null) return
-
-        // 오늘 날짜에 해당하는지 확인
         const startDate = data.startDate.toDate()
         const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
         const isToday = startStr === todayStr
