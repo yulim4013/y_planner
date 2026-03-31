@@ -41,8 +41,8 @@ export function getNotificationPermission(): string {
   return Notification.permission
 }
 
-// 알림 보내기
-function showNotification(title: string, body: string, _iconId?: string) {
+// 알림 보내기 (tag로 서버 푸시와 중복 방지)
+function showNotification(title: string, body: string, tag: string) {
   if (Notification.permission !== 'granted') return
 
   try {
@@ -50,16 +50,16 @@ function showNotification(title: string, body: string, _iconId?: string) {
       body,
       icon: '/y_planner/icons/icon-192x192.jpg',
       badge: '/y_planner/icons/icon-192x192.jpg',
-      tag: `routine-${title}`,
+      tag,
       requireInteraction: false,
     })
   } catch {
-    // 모바일 Safari 등에서 Notification 생성자 미지원 시
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
         type: 'SHOW_NOTIFICATION',
         title,
         body,
+        tag,
       })
     }
   }
@@ -82,7 +82,7 @@ function scheduleRoutineNotification(routine: Routine) {
   if (diff > 24 * 60 * 60 * 1000) return
 
   const timerId = window.setTimeout(() => {
-    showNotification(routine.title, '루틴을 시작할 시간이에요!', routine.iconId)
+    showNotification(routine.title, '루틴을 시작할 시간이에요!', `routine-${routine.id}`)
     routineTimers.delete(routine.id)
   }, diff)
 
@@ -130,7 +130,7 @@ function scheduleItemReminder(
   if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return
 
   const timerId = window.setTimeout(() => {
-    showNotification(title, body)
+    showNotification(title, body, key)
     timers.delete(key)
   }, diff)
   timers.set(key, timerId)

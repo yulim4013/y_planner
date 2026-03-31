@@ -244,7 +244,8 @@ export const sendScheduledNotifications = functions
     // 3. 태스크 알림
     try {
       const snap = await userRef.collection('tasks').where('isCompleted', '==', false).get()
-      console.log(`[Push] Tasks found: ${snap.size} incomplete`)
+      const withReminder = snap.docs.filter((d) => d.data().reminder != null && d.data().dueTime)
+      console.log(`[Push] Tasks: ${snap.size} total, ${withReminder.length} with reminder+time`)
       snap.docs.forEach((doc) => {
         const data = doc.data()
         if (data.reminder == null || !data.dueTime) return

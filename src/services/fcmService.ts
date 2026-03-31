@@ -58,12 +58,7 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
 
     if (!subscription) return null
 
-    // 기존 구독 전부 삭제 후 새로 저장 (중복 방지)
-    const subsRef = collection(db, 'users', uid, 'pushSubscriptions')
-    const existingSnap = await getDocs(subsRef)
-    await Promise.all(existingSnap.docs.map((d) => deleteDoc(d.ref)))
-
-    // 구독 정보를 Firestore에 저장
+    // 구독 정보를 Firestore에 저장 (같은 기기는 같은 ID로 덮어쓰기)
     const endpoint = subscription.endpoint
     const p256dh = arrayBufferToBase64(subscription.getKey('p256dh')!)
     const auth = arrayBufferToBase64(subscription.getKey('auth')!)

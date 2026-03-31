@@ -22,6 +22,7 @@ self.addEventListener('message', (event) => {
       body: event.data.body,
       icon: '/y_planner/icons/icon-192x192.jpg',
       badge: '/y_planner/icons/icon-192x192.jpg',
+      tag: event.data.tag || 'default',
       requireInteraction: false,
     })
   }
