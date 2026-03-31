@@ -81,6 +81,15 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
       updatedAt: Timestamp.now(),
     })
 
+    // 이전 ID 방식(endpoint만 해시)으로 만든 고아 문서 정리
+    const oldHashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint))
+    const oldSubId = arrayBufferToBase64(oldHashBuffer).slice(0, 20)
+    if (oldSubId !== subId) {
+      console.log('[Push] Cleaning up old subscription:', oldSubId)
+      const oldRef = doc(db, 'users', uid, 'pushSubscriptions', oldSubId)
+      deleteDoc(oldRef).catch(() => {})
+    }
+
     console.log('[Push] Subscription saved:', subId)
     return subId
   } catch (err) {

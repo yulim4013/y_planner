@@ -120,10 +120,12 @@ interface PushSub {
  */
 async function getUserSubscriptions(uid: string): Promise<{ id: string; sub: PushSub }[]> {
   const snap = await db.collection('users').doc(uid).collection('pushSubscriptions').get()
-  return snap.docs.map((d) => ({
+  const subs = snap.docs.map((d) => ({
     id: d.id,
     sub: d.data() as PushSub,
   })).filter((s) => s.sub.endpoint && s.sub.keys)
+  console.log(`[Push] Found ${subs.length} subscriptions:`, subs.map((s) => `${s.id} (${s.sub.endpoint.slice(0, 50)}...)`))
+  return subs
 }
 
 /**
@@ -146,7 +148,7 @@ async function sendPush(subs: { id: string; sub: PushSub }[], title: string, bod
       )
       console.log(`[Push] Sent to ${id}`)
     } catch (err: any) {
-      console.error(`[Push] Failed for ${id}:`, err?.statusCode, err?.body)
+      console.error(`[Push] Failed for ${id}:`, err?.statusCode, err?.body, err?.message)
       // 410 Gone 또는 404 = 구독 만료 → 삭제
       if (err?.statusCode === 410 || err?.statusCode === 404) {
         console.log(`[Push] Removing expired subscription: ${id}`)
