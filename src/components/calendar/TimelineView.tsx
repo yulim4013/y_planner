@@ -387,77 +387,35 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 이벤트 + 단독 태스크 겹침 감지 → 컬럼 배치 (동일 시작시간 분할)
+  // 이벤트 + 단독 태스크: 동일 시작시간인 경우에만 나란히 분할
   const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
 
-    type Item = { id: string; start: number; end: number }
-    const items: Item[] = []
+    // 모든 아이템을 시작시간(분) 기준으로 그룹핑
+    const byStart = new Map<number, string[]>()
 
     eventGroups.forEach((g) => {
       const start = timeToMinutes(g.event.startTime!)
-      const end = g.event.endTime ? timeToMinutes(g.event.endTime) : start + 60
-      items.push({ id: g.event.id, start, end })
+      const group = byStart.get(start) || []
+      group.push(g.event.id)
+      byStart.set(start, group)
     })
 
     ungroupedTasks.forEach((t) => {
       const displayTime = t.isCompleted && t.completedTime ? t.completedTime : t.dueTime!
       const start = timeToMinutes(displayTime)
-      // 태스크는 얇은 행 → 최소 end(start+1)로 같은 시작시간만 겹침 감지
-      items.push({ id: t.id, start, end: start + 1 })
+      const group = byStart.get(start) || []
+      group.push(t.id)
+      byStart.set(start, group)
     })
 
-    if (items.length <= 1) {
-      items.forEach((item) => cols.set(item.id, { col: 0, total: 1 }))
-      return cols
+    // 같은 시작시간 그룹에 2개 이상이면 컬럼 분할
+    for (const [, group] of byStart) {
+      group.forEach((id, i) => {
+        cols.set(id, { col: i, total: group.length })
+      })
     }
 
-    const sorted = [...items].sort((a, b) => a.start - b.start || a.end - b.end)
-
-    // 겹치는 그룹 찾기
-    const groups: (typeof sorted)[] = []
-    let currentGroup: typeof sorted = []
-    let groupEnd = 0
-    for (const item of sorted) {
-      if (currentGroup.length === 0 || item.start < groupEnd) {
-        currentGroup.push(item)
-        groupEnd = Math.max(groupEnd, item.end)
-      } else {
-        groups.push(currentGroup)
-        currentGroup = [item]
-        groupEnd = item.end
-      }
-    }
-    if (currentGroup.length > 0) groups.push(currentGroup)
-
-    // 각 그룹 내에서 컬럼 할당
-    for (const group of groups) {
-      if (group.length === 1) {
-        cols.set(group[0].id, { col: 0, total: 1 })
-        continue
-      }
-      const colEnds: number[] = []
-      for (const item of group) {
-        let placed = false
-        for (let c = 0; c < colEnds.length; c++) {
-          if (colEnds[c] <= item.start) {
-            colEnds[c] = item.end
-            cols.set(item.id, { col: c, total: 0 })
-            placed = true
-            break
-          }
-        }
-        if (!placed) {
-          cols.set(item.id, { col: colEnds.length, total: 0 })
-          colEnds.push(item.end)
-        }
-      }
-      const total = colEnds.length
-      for (const item of group) {
-        const entry = cols.get(item.id)!
-        entry.total = total
-      }
-    }
     return cols
   })()
 

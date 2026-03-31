@@ -120,11 +120,32 @@ interface PushSub {
  */
 async function getUserSubscriptions(uid: string): Promise<{ id: string; sub: PushSub }[]> {
   const snap = await db.collection('users').doc(uid).collection('pushSubscriptions').get()
-  const subs = snap.docs.map((d) => ({
+  const allSubs = snap.docs.map((d) => ({
     id: d.id,
     sub: d.data() as PushSub,
   })).filter((s) => s.sub.endpoint && s.sub.keys)
-  console.log(`[Push] Found ${subs.length} subscriptions:`, subs.map((s) => `${s.id} (${s.sub.endpoint.slice(0, 50)}...)`))
+
+  // endpoint 기준 중복 제거 (같은 endpoint = 같은 기기, 마지막 것만 유지)
+  const byEndpoint = new Map<string, { id: string; sub: PushSub }>()
+  const toDelete: string[] = []
+  for (const s of allSubs) {
+    const existing = byEndpoint.get(s.sub.endpoint)
+    if (existing) {
+      toDelete.push(existing.id)
+    }
+    byEndpoint.set(s.sub.endpoint, s)
+  }
+
+  // 중복 구독 삭제
+  for (const id of toDelete) {
+    await db.collection('users').doc(uid).collection('pushSubscriptions').doc(id).delete().catch(() => {})
+  }
+
+  const subs = Array.from(byEndpoint.values())
+  if (toDelete.length > 0) {
+    console.log(`[Push] Cleaned up ${toDelete.length} duplicate subscriptions`)
+  }
+  console.log(`[Push] Found ${subs.length} unique subscriptions`)
   return subs
 }
 
@@ -164,32 +185,44 @@ function timeToMinutes(time: string): number {
 }
 
 /**
- * 반복 일정/태스크가 특정 날짜에 해당하는지 확인
+ * Date → KST 날짜 문자열 (Cloud Functions는 UTC 서버이므로 +9시간 보정 필수)
+ */
+function toKSTDateStr(date: Date): string {
+  const kst = new Date(date.getTime() + 9 * 60 * 60000)
+  return kst.toISOString().split('T')[0]
+}
+
+/**
+ * 반복 일정/태스크가 특정 날짜에 해당하는지 확인 (KST 기준)
  */
 function matchesRepeatDate(originalDate: Date, todayStr: string, repeat: string, repeatEndDate?: admin.firestore.Timestamp | null): boolean {
   if (!repeat || repeat === 'none') return false
-  const orig = new Date(originalDate)
-  orig.setHours(0, 0, 0, 0)
-  const [ty, tm, td] = todayStr.split('-').map(Number)
-  const target = new Date(ty, tm - 1, td)
-  if (target.getTime() <= orig.getTime()) return false
+
+  const origStr = toKSTDateStr(originalDate)
+  if (todayStr <= origStr) return false // target은 원본 이후여야 함
 
   // 반복 종료일 체크
   if (repeatEndDate) {
-    const endDate = repeatEndDate.toDate()
-    endDate.setHours(23, 59, 59, 999)
-    if (target.getTime() > endDate.getTime()) return false
+    const endStr = toKSTDateStr(repeatEndDate.toDate())
+    if (todayStr > endStr) return false
   }
+
+  const [, om, od] = origStr.split('-').map(Number)
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+
+  // 요일 비교용 Date (UTC로 생성해서 getUTCDay 사용, 월은 0-based)
+  const [oy] = origStr.split('-').map(Number)
+  const origDow = new Date(Date.UTC(oy, om - 1, od)).getUTCDay()
+  const targetDow = new Date(Date.UTC(ty, tm - 1, td)).getUTCDay()
 
   switch (repeat) {
     case 'daily': return true
-    case 'weekly': return orig.getDay() === target.getDay()
+    case 'weekly': return origDow === targetDow
     case 'monthly': {
-      const origDay = orig.getDate()
-      const lastDay = new Date(ty, tm, 0).getDate()
-      return origDay > lastDay ? td === lastDay : origDay === td
+      const lastDay = new Date(Date.UTC(ty, tm, 0)).getUTCDate()
+      return od > lastDay ? td === lastDay : od === td
     }
-    case 'yearly': return orig.getMonth() === (tm - 1) && orig.getDate() === td
+    case 'yearly': return om === tm && od === td
     default: return false
   }
 }
@@ -264,7 +297,7 @@ export const sendScheduledNotifications = functions
       withReminder.forEach((doc) => {
         const data = doc.data()
         const startDate = data.startDate.toDate()
-        const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
+        const startStr = toKSTDateStr(startDate)
         const isToday = startStr === todayStr
         const isRepeatMatch = !isToday && matchesRepeatDate(startDate, todayStr, data.repeat, data.repeatEndDate)
 
@@ -296,7 +329,7 @@ export const sendScheduledNotifications = functions
         // dueDate가 없으면 오늘 기준으로 체크
         if (data.dueDate) {
           const d = data.dueDate.toDate()
-          const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          const ds = toKSTDateStr(d)
           if (ds !== todayStr) {
             // 반복 태스크인 경우 오늘 매칭 확인
             if (!matchesRepeatDate(d, todayStr, data.repeat, data.repeatEndDate)) return

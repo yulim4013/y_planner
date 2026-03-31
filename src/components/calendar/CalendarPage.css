@@ -338,10 +338,9 @@
     margin-top: 0;
   }
 
-  /* 일 뷰 - PC에서도 모바일과 동일하게 세로 배치 (주간스트립 위, 타임라인 아래) */
+  /* 일 뷰 - PC에서도 모바일과 동일하게 세로 배치 */
   .day-view-layout {
-    max-width: 600px;
-    margin: 0 auto;
+    /* 페이지 전체 폭 사용 */
   }
 
   .day-view-timeline-scroll {
