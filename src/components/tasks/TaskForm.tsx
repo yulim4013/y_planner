@@ -40,12 +40,17 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     }
   }, [editTask, isOpen])
 
+  function getTodayString(): string {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   function resetForm() {
     setTitle('')
     setDescription('')
     setPriority('medium')
     setCategoryId(null)
-    setDueDate('')
+    setDueDate(getTodayString())
     setDueTime('')
     setReminder('')
     setRepeat('none')

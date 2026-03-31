@@ -45,6 +45,7 @@ export async function addEvent(data: {
   isAllDay?: boolean
   categoryId?: string | null
   location?: string
+  reminder?: number | null
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 }) {
   const ref = getEventsRef()
@@ -62,7 +63,7 @@ export async function addEvent(data: {
     categoryId: data.categoryId || null,
     location: data.location || '',
     repeat: data.repeat || 'none',
-    reminder: null,
+    reminder: data.reminder ?? null,
     createdAt: now,
     updatedAt: now,
   })
