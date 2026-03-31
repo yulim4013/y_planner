@@ -20,6 +20,7 @@ import { subscribeRoutinesByDate } from '../../services/routineService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { getMonthYear } from '../../utils/dateUtils'
+import { matchesRepeatDate } from '../../utils/repeatUtils'
 import type { CalendarEvent, Task, Category, Routine, Transaction, SleepRecord } from '../../types'
 import './CalendarPage.css'
 
@@ -72,12 +73,21 @@ export default function CalendarPage() {
     const end = e.endDate.toDate()
     start.setHours(0, 0, 0, 0)
     end.setHours(23, 59, 59, 999)
-    return selectedDate >= start && selectedDate <= end
+    // 원본 날짜 매칭
+    if (selectedDate >= start && selectedDate <= end) return true
+    // 반복 일정 매칭
+    return matchesRepeatDate(start, selectedDate, e.repeat)
   })
 
   const dayTasks = tasks.filter((t) => {
     if (!t.dueDate) return false
-    return isSameDay(t.dueDate.toDate(), selectedDate)
+    // 원본 날짜 매칭
+    if (isSameDay(t.dueDate.toDate(), selectedDate)) return true
+    // 반복 태스크 매칭 (완료되지 않은 반복 태스크만)
+    if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
+      return matchesRepeatDate(t.dueDate.toDate(), selectedDate, t.repeat)
+    }
+    return false
   })
 
   // 일 뷰 주간 스트립

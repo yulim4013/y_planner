@@ -11,6 +11,7 @@ import {
   format,
 } from 'date-fns'
 import { formatNumber } from '../../utils/currencyUtils'
+import { matchesRepeatDate } from '../../utils/repeatUtils'
 import type { CalendarEvent, Task, Transaction } from '../../types'
 import './MonthlyView.css'
 
@@ -53,13 +54,18 @@ export default function MonthlyView({ currentDate, events, tasks, transactions =
       const end = e.endDate.toDate()
       start.setHours(0, 0, 0, 0)
       end.setHours(23, 59, 59, 999)
-      return day >= start && day <= end
+      if (day >= start && day <= end) return true
+      return matchesRepeatDate(start, day, e.repeat)
     })
     if (hasEvent) dots.push('event')
 
     const hasTask = tasks.some((t) => {
       if (!t.dueDate) return false
-      return isSameDay(t.dueDate.toDate(), day)
+      if (isSameDay(t.dueDate.toDate(), day)) return true
+      if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
+        return matchesRepeatDate(t.dueDate.toDate(), day, t.repeat)
+      }
+      return false
     })
     if (hasTask) dots.push('task')
 

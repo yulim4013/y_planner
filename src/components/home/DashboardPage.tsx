@@ -26,6 +26,7 @@ import { deleteEvent } from '../../services/eventService'
 import { deleteTask } from '../../services/taskService'
 import { useUIStore } from '../../store/uiStore'
 import { formatNumber } from '../../utils/currencyUtils'
+import { matchesRepeatDate } from '../../utils/repeatUtils'
 import { format } from 'date-fns'
 import { Timestamp } from 'firebase/firestore'
 import type { Task, CalendarEvent, Routine, RoutineTemplate, SleepRecord, Category, Transaction } from '../../types'
@@ -182,7 +183,12 @@ export default function DashboardPage() {
   const todayTasks = tasks.filter((t) => {
     if (!t.dueDate) return !t.isCompleted
     const d = t.dueDate.toDate()
-    return d >= todayStart && d <= todayEnd
+    if (d >= todayStart && d <= todayEnd) return true
+    // 반복 태스크 (완료되지 않은 것만)
+    if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
+      return matchesRepeatDate(d, today, t.repeat)
+    }
+    return false
   })
   const taskCompletedCount = todayTasks.filter((t) => t.isCompleted).length
 
@@ -190,7 +196,8 @@ export default function DashboardPage() {
   const todayEvents = events.filter((e) => {
     const start = e.startDate.toDate(); start.setHours(0, 0, 0, 0)
     const end = e.endDate.toDate(); end.setHours(23, 59, 59, 999)
-    return today >= start && today <= end
+    if (today >= start && today <= end) return true
+    return matchesRepeatDate(start, today, e.repeat)
   }).sort((a, b) => {
     if (a.isAllDay && !b.isAllDay) return -1
     if (!a.isAllDay && b.isAllDay) return 1

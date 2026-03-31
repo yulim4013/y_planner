@@ -164,6 +164,30 @@ function timeToMinutes(time: string): number {
 }
 
 /**
+ * 반복 일정/태스크가 특정 날짜에 해당하는지 확인
+ */
+function matchesRepeatDate(originalDate: Date, todayStr: string, repeat: string): boolean {
+  if (!repeat || repeat === 'none') return false
+  const orig = new Date(originalDate)
+  orig.setHours(0, 0, 0, 0)
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const target = new Date(ty, tm - 1, td)
+  if (target.getTime() <= orig.getTime()) return false
+
+  switch (repeat) {
+    case 'daily': return true
+    case 'weekly': return orig.getDay() === target.getDay()
+    case 'monthly': {
+      const origDay = orig.getDate()
+      const lastDay = new Date(ty, tm, 0).getDate()
+      return origDay > lastDay ? td === lastDay : origDay === td
+    }
+    case 'yearly': return orig.getMonth() === (tm - 1) && orig.getDate() === td
+    default: return false
+  }
+}
+
+/**
  * 매 분 실행: 루틴/일정/태스크 미리알림 시간에 맞춰 푸시 전송
  */
 export const sendScheduledNotifications = functions
@@ -220,22 +244,43 @@ export const sendScheduledNotifications = functions
       console.error('[Push] Routine error:', err)
     }
 
-    // 2. 일정 알림
+    // 2. 일정 알림 (오늘 날짜 + 반복 일정)
     try {
-      const snap = await userRef.collection('events')
+      // 오늘 날짜 일정
+      const todaySnap = await userRef.collection('events')
         .where('startDate', '>=', admin.firestore.Timestamp.fromDate(todayStart))
         .where('startDate', '<=', admin.firestore.Timestamp.fromDate(todayEnd))
         .get()
-      snap.docs.forEach((doc) => {
+      // 반복 일정 (오늘이 아닌 원본 날짜)
+      const repeatSnap = await userRef.collection('events')
+        .where('repeat', 'in', ['daily', 'weekly', 'monthly', 'yearly'])
+        .get()
+
+      const processedIds = new Set<string>()
+      const allEventDocs = [...todaySnap.docs, ...repeatSnap.docs]
+
+      allEventDocs.forEach((doc) => {
+        if (processedIds.has(doc.id)) return
+        processedIds.add(doc.id)
+
         const data = doc.data()
         if (data.isAllDay || !data.startTime || data.reminder == null) return
+
+        // 오늘 날짜에 해당하는지 확인
+        const startDate = data.startDate.toDate()
+        const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
+        const isToday = startStr === todayStr
+        const isRepeatMatch = !isToday && matchesRepeatDate(startDate, todayStr, data.repeat)
+
+        if (!isToday && !isRepeatMatch) return
+
         const alertMin = timeToMinutes(data.startTime) - (data.reminder as number)
         if (alertMin === kstMinutes) {
           const title = data.title === '(제목 없음)' ? '일정' : data.title
           notifications.push({
             title: `📅 ${title}`,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
-            tag: `event-${doc.id}`,
+            tag: `event-${doc.id}-${todayStr}`,
           })
         }
       })
@@ -256,7 +301,10 @@ export const sendScheduledNotifications = functions
         if (data.dueDate) {
           const d = data.dueDate.toDate()
           const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-          if (ds !== todayStr) return
+          if (ds !== todayStr) {
+            // 반복 태스크인 경우 오늘 매칭 확인
+            if (!matchesRepeatDate(d, todayStr, data.repeat)) return
+          }
         }
 
         const alertMin = timeToMinutes(data.dueTime) - (data.reminder as number)
