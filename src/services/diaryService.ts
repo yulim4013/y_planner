@@ -49,33 +49,35 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   const uid = useAuthStore.getState().user?.uid
   if (!uid || !storage) {
-    console.error('uploadDiaryPhoto: uid or storage is null')
-    return null
+    console.error('uploadDiaryPhoto: uid or storage is null', { uid: !!uid, storage: !!storage })
+    throw new Error('로그인 상태를 확인해주세요')
   }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+  // 항상 JPEG로 압축하여 업로드 (호환성 + 용량 최적화)
+  let uploadFile: File
+  try {
+    uploadFile = await withTimeout(compressImage(file, 0.8, 1600), 15000, 'compressImage')
+  } catch (err) {
+    console.warn('Image compress failed, using original:', err)
+    uploadFile = file
+  }
+
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`
   const storagePath = `users/${uid}/diary/${fileName}`
   const storageRef = ref(storage, storagePath)
 
-  // Compress image if too large (> 1MB)
-  let uploadFile = file
-  if (file.size > 1024 * 1024) {
-    try {
-      uploadFile = await withTimeout(compressImage(file, 0.7, 1200), 15000, 'compressImage')
-    } catch (err) {
-      console.warn('Image compress failed, using original:', err)
-      uploadFile = file
-    }
-  }
-
   try {
-    const metadata = { contentType: uploadFile.type || 'image/jpeg' }
-    console.log('[diary] uploading:', storagePath, 'size:', uploadFile.size, 'type:', metadata.contentType)
-    await withTimeout(uploadBytes(storageRef, uploadFile, metadata), 30000, 'uploadBytes')
+    const metadata = { contentType: 'image/jpeg' }
+    console.log('[diary] uploading:', storagePath, 'size:', uploadFile.size)
+
+    // uploadBytes 대신 ArrayBuffer로 변환 후 업로드 (iOS Safari 호환)
+    const arrayBuffer = await uploadFile.arrayBuffer()
+    const uint8 = new Uint8Array(arrayBuffer)
+    await withTimeout(uploadBytes(storageRef, uint8, metadata), 60000, 'uploadBytes')
+
     console.log('[diary] upload done, getting URL...')
-    const url = await withTimeout(getDownloadURL(storageRef), 10000, 'getDownloadURL')
-    console.log('[diary] got URL:', url.slice(0, 60) + '...')
+    const url = await withTimeout(getDownloadURL(storageRef), 15000, 'getDownloadURL')
+    console.log('[diary] success:', url.slice(0, 60) + '...')
 
     return {
       url,
@@ -83,9 +85,21 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
       caption: '',
       uploadedAt: Timestamp.now(),
     }
-  } catch (err) {
-    console.error('[diary] uploadDiaryPhoto failed at:', storagePath, err)
-    throw err // re-throw so DiaryForm can show error
+  } catch (err: any) {
+    console.error('[diary] uploadDiaryPhoto failed:', storagePath, err)
+    // Firebase Storage 에러 코드별 사용자 메시지
+    const code = err?.code || ''
+    if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
+      throw new Error('권한이 없습니다. 다시 로그인해주세요.')
+    } else if (code === 'storage/quota-exceeded') {
+      throw new Error('저장 공간이 부족합니다.')
+    } else if (code === 'storage/canceled') {
+      throw new Error('업로드가 취소되었습니다.')
+    } else if (err?.message?.includes('timeout')) {
+      throw new Error('업로드 시간이 초과되었습니다. 네트워크를 확인해주세요.')
+    } else {
+      throw new Error(`업로드 실패 (${code || 'unknown'}): 네트워크 연결을 확인해주세요.`)
+    }
   }
 }
 

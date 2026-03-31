@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   format, addMonths, subMonths,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -8,8 +8,8 @@ import { ko } from 'date-fns/locale'
 import Header from '../layout/Header'
 import GlassCard from '../common/GlassCard'
 import DiaryForm from './DiaryForm'
-import { subscribeDiaryEntries, deleteDiaryEntry } from '../../services/diaryService'
-import type { DiaryEntry, Mood } from '../../types'
+import { subscribeDiaryEntries, deleteDiaryEntry, addDiaryEntry, uploadDiaryPhoto, deleteDiaryPhoto } from '../../services/diaryService'
+import type { DiaryEntry, DiaryPhoto, Mood } from '../../types'
 import './DiaryPage.css'
 
 const MOOD_EMOJI: Record<Mood, string> = {
@@ -27,6 +27,14 @@ const MOOD_LABEL: Record<Mood, string> = {
   terrible: '나쁨',
 }
 
+const MOODS: { value: Mood; emoji: string; label: string }[] = [
+  { value: 'great', emoji: '\u{1F606}', label: '최고' },
+  { value: 'good', emoji: '\u{1F60A}', label: '좋음' },
+  { value: 'okay', emoji: '\u{1F610}', label: '보통' },
+  { value: 'bad', emoji: '\u{1F615}', label: '별로' },
+  { value: 'terrible', emoji: '\u{1F622}', label: '나쁨' },
+]
+
 function isSameDayFn(d1: Date, d2: Date) {
   return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate()
 }
@@ -39,6 +47,18 @@ export default function DiaryPage() {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null)
+
+  // 인라인 작성 상태
+  const [inlineTitle, setInlineTitle] = useState('')
+  const [inlineMood, setInlineMood] = useState<Mood | null>(null)
+  const [inlineContent, setInlineContent] = useState('')
+  const [inlinePhotos, setInlinePhotos] = useState<DiaryPhoto[]>([])
+  const [inlineLinks, setInlineLinks] = useState<string[]>([])
+  const [inlineLinkInput, setInlineLinkInput] = useState('')
+  const [inlineUploading, setInlineUploading] = useState(false)
+  const [inlineUploadError, setInlineUploadError] = useState('')
+  const [inlineSaving, setInlineSaving] = useState(false)
+  const inlineFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     return subscribeDiaryEntries((data) => setEntries(data))
@@ -74,16 +94,26 @@ export default function DiaryPage() {
     setSelectedDate(null)
   }, [])
 
+  // 인라인 폼 리셋
+  const resetInlineForm = () => {
+    setInlineTitle('')
+    setInlineMood(null)
+    setInlineContent('')
+    setInlinePhotos([])
+    setInlineLinks([])
+    setInlineLinkInput('')
+    setInlineUploadError('')
+  }
+
   const handleDayClick = (day: Date) => {
-    const key = format(day, 'yyyy-MM-dd')
-    const entry = entryMap.get(key)
-    if (entry) {
-      setSelectedDate(day)
-    } else {
-      setSelectedDate(day)
-      setEditEntry(null)
-      setFormOpen(true)
+    // 같은 날짜 다시 클릭 시 선택 해제
+    if (selectedDate && isSameDay(day, selectedDate)) {
+      setSelectedDate(null)
+      resetInlineForm()
+      return
     }
+    setSelectedDate(day)
+    resetInlineForm()
   }
 
   const handleWrite = () => {
@@ -105,6 +135,67 @@ export default function DiaryPage() {
     if (confirm('이 일기를 삭제할까요?')) {
       await deleteDiaryEntry(id)
       setSelectedDate(null)
+    }
+  }
+
+  // 인라인 사진 업로드
+  const handleInlinePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setInlineUploading(true)
+    setInlineUploadError('')
+    try {
+      const newPhotos: DiaryPhoto[] = []
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const photo = await uploadDiaryPhoto(files[i])
+          if (photo) newPhotos.push(photo)
+        } catch (err) {
+          console.error(`Photo ${i + 1} upload failed:`, err)
+          setInlineUploadError(`사진 업로드 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`)
+        }
+      }
+      if (newPhotos.length > 0) setInlinePhotos((prev) => [...prev, ...newPhotos])
+    } finally {
+      setInlineUploading(false)
+      if (inlineFileRef.current) inlineFileRef.current.value = ''
+    }
+  }
+
+  const handleInlineRemovePhoto = async (index: number) => {
+    const photo = inlinePhotos[index]
+    if (photo.storagePath) await deleteDiaryPhoto(photo.storagePath)
+    setInlinePhotos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleInlineAddLink = () => {
+    const url = inlineLinkInput.trim()
+    if (!url) return
+    const finalUrl = url.match(/^https?:\/\//) ? url : `https://${url}`
+    setInlineLinks((prev) => [...prev, finalUrl])
+    setInlineLinkInput('')
+  }
+
+  // 인라인 저장
+  const handleInlineSave = async () => {
+    if (!selectedDate) return
+    if (!inlineTitle.trim() && !inlineContent.trim() && !inlineMood && inlinePhotos.length === 0) return
+    setInlineSaving(true)
+    try {
+      await addDiaryEntry({
+        date: selectedDate,
+        title: inlineTitle.trim(),
+        mood: inlineMood,
+        content: inlineContent.trim(),
+        photos: inlinePhotos,
+        links: inlineLinks,
+      })
+      resetInlineForm()
+      // 저장 후 해당 날짜의 일기를 보여줌 (selectedDate 유지)
+    } catch (err) {
+      console.error('Diary save error:', err)
+    } finally {
+      setInlineSaving(false)
     }
   }
 
@@ -155,7 +246,7 @@ export default function DiaryPage() {
               >
                 <span className="diary-cal-num">{format(day, 'd')}</span>
                 {entry && (
-                  <span className="diary-cal-mood">{entry.mood ? MOOD_EMOJI[entry.mood] : '📝'}</span>
+                  <span className="diary-cal-mood">{entry.mood ? MOOD_EMOJI[entry.mood] : '\u{1F4DD}'}</span>
                 )}
               </div>
             )
@@ -210,11 +301,117 @@ export default function DiaryPage() {
         </GlassCard>
       )}
 
+      {/* 선택된 날짜에 일기 없음 → 인라인 작성 폼 */}
       {selectedDate && !selectedEntry && (
         <GlassCard>
-          <div className="diary-empty-state">
-            <p className="diary-empty-text">{format(selectedDate, 'M월 d일', { locale: ko })} 일기가 없어요</p>
-            <button className="diary-write-btn" onClick={handleWrite}>일기 쓰기</button>
+          <div className="diary-inline-form">
+            <div className="diary-inline-header">
+              <span className="diary-entry-date-label">
+                {format(selectedDate, 'M월 d일 EEEE', { locale: ko })}
+              </span>
+            </div>
+
+            {/* 기분 선택 */}
+            <div className="diary-inline-mood-row">
+              {MOODS.map((m) => (
+                <button
+                  key={m.value}
+                  className={`diary-inline-mood-btn ${inlineMood === m.value ? 'active' : ''}`}
+                  onClick={() => setInlineMood(inlineMood === m.value ? null : m.value)}
+                >
+                  <span>{m.emoji}</span>
+                  <span className="diary-inline-mood-label">{m.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* 제목 */}
+            <input
+              className="diary-inline-title"
+              placeholder="제목 (선택)"
+              value={inlineTitle}
+              onChange={(e) => setInlineTitle(e.target.value)}
+            />
+
+            {/* 내용 */}
+            <textarea
+              className="diary-inline-textarea"
+              placeholder="오늘 하루는 어땠나요?"
+              value={inlineContent}
+              onChange={(e) => setInlineContent(e.target.value)}
+              rows={5}
+            />
+
+            {/* 사진 */}
+            <input
+              ref={inlineFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleInlinePhotoSelect}
+              style={{ display: 'none' }}
+            />
+            <div className="diary-inline-photos">
+              {inlinePhotos.map((photo, i) => (
+                <div key={i} className="diary-inline-photo-thumb">
+                  <img src={photo.url} alt="" />
+                  <button className="diary-inline-photo-remove" onClick={() => handleInlineRemovePhoto(i)}>×</button>
+                </div>
+              ))}
+            </div>
+            {inlineUploadError && <p className="diary-inline-error">{inlineUploadError}</p>}
+
+            {/* 링크 */}
+            {inlineLinks.length > 0 && (
+              <div className="diary-inline-links">
+                {inlineLinks.map((link, i) => (
+                  <div key={i} className="diary-inline-link-item">
+                    <span>{link.replace(/^https?:\/\//, '').slice(0, 35)}</span>
+                    <button onClick={() => setInlineLinks((prev) => prev.filter((_, idx) => idx !== i))}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 하단 도구 + 저장 */}
+            <div className="diary-inline-actions">
+              <div className="diary-inline-tools">
+                <button
+                  className="diary-inline-tool-btn"
+                  onClick={() => inlineFileRef.current?.click()}
+                  disabled={inlineUploading}
+                >
+                  {inlineUploading ? (
+                    <div className="diary-upload-spinner-sm" />
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  )}
+                </button>
+                <div className="diary-inline-link-input-row">
+                  <input
+                    className="diary-inline-link-input"
+                    placeholder="URL 추가"
+                    value={inlineLinkInput}
+                    onChange={(e) => setInlineLinkInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInlineAddLink() } }}
+                  />
+                  {inlineLinkInput.trim() && (
+                    <button className="diary-inline-link-add" onClick={handleInlineAddLink}>+</button>
+                  )}
+                </div>
+              </div>
+              <button
+                className="diary-inline-save-btn"
+                onClick={handleInlineSave}
+                disabled={inlineSaving || inlineUploading || (!inlineTitle.trim() && !inlineContent.trim() && !inlineMood && inlinePhotos.length === 0)}
+              >
+                {inlineSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
           </div>
         </GlassCard>
       )}

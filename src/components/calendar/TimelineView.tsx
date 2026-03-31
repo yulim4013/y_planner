@@ -538,16 +538,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
     if (lpTriggeredRef.current) { lpTriggeredRef.current = false; return }
     if (actionBar || draggedId) return
-    // 활성 이벤트 클릭 시 편집 대신 비활성화
-    if (type === 'event' && activeEventId === (item as CalendarEvent).id) {
-      setActiveEventId(null)
-      return
-    }
-    // 다른 곳 클릭 시 활성 이벤트 해제
-    if (activeEventId) {
-      setActiveEventId(null)
-      return
-    }
+    // 싱글 탭 → 바로 수정 폼 열기 (활성 상태여도 수정 폼 열기)
+    if (activeEventId) setActiveEventId(null)
     if (type === 'event') onEditEvent(item as CalendarEvent)
     else onEditTask(item as Task)
   }
@@ -667,8 +659,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const [tlSwipeAnimating, setTlSwipeAnimating] = useState(false)
 
   const handleTlSwipeStart = useCallback((e: React.TouchEvent) => {
-    // 드래그/롱프레스 중에는 스와이프 방지
-    if (draggedId || gridLpRef.current || lpTimerRef.current) return
+    // 드래그 중에는 스와이프 방지 (롱프레스 타이머는 스와이프 move에서 취소)
+    if (draggedId) return
     tlSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, decided: false, isHorizontal: false }
   }, [draggedId])
 
@@ -679,6 +671,11 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     if (!tlSwipeRef.current.decided && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
       tlSwipeRef.current.decided = true
       tlSwipeRef.current.isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.5
+      // 수평 스와이프 감지 시 그리드 롱프레스 + 아이템 롱프레스 타이머 취소
+      if (tlSwipeRef.current.isHorizontal) {
+        if (gridLpRef.current) { clearTimeout(gridLpRef.current); clearTimeout((gridLpRef as any)._previewTimer); gridLpRef.current = null; setLpIndicator(null) }
+        if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+      }
     }
     if (tlSwipeRef.current.decided && tlSwipeRef.current.isHorizontal) {
       setTlSwipeOffset(dx * 0.4) // 저항감 있는 따라가기

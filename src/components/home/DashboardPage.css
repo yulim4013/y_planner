@@ -1,6 +1,8 @@
 .dashboard-date {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: var(--space-lg);
   margin-bottom: var(--space-lg);
   text-align: center;
 }

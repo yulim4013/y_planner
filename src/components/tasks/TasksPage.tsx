@@ -83,8 +83,8 @@ export default function TasksPage() {
     return b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()
   })
 
-  // 카테고리 정렬 시 그룹핑
-  const categoryGroups = sort === 'category' ? (() => {
+  // 카테고리 정렬 시 그룹핑 (카테고리가 로딩되지 않았으면 그룹핑 안 함)
+  const categoryGroups = sort === 'category' && categories.length > 0 ? (() => {
     const groups: { cat: Category | null; tasks: Task[] }[] = []
     const map = new Map<string, Task[]>()
     sorted.forEach((t) => {

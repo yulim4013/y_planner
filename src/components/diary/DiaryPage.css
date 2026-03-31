@@ -397,6 +397,239 @@
   overflow: hidden;
 }
 
+/* ==================== 인라인 작성 폼 ==================== */
+.diary-inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diary-inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.diary-inline-mood-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.diary-inline-mood-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  cursor: pointer;
+  font-size: 20px;
+  transition: transform 0.15s ease;
+}
+
+.diary-inline-mood-btn.active {
+  box-shadow: var(--neu-concave);
+  transform: scale(1.1);
+}
+
+.diary-inline-mood-label {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.diary-inline-title {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  color: var(--color-text);
+  outline: none;
+}
+
+.diary-inline-textarea {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--color-bg);
+  box-shadow: var(--neu-concave);
+  color: var(--color-text);
+  outline: none;
+  resize: none;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+.diary-inline-photos {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.diary-inline-photo-thumb {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diary-inline-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.diary-inline-photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary-inline-error {
+  font-size: 12px;
+  color: #FF6B6B;
+  margin: 0;
+}
+
+.diary-inline-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diary-inline-link-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #4A90D9;
+  background: var(--color-divider);
+  border-radius: 6px;
+}
+
+.diary-inline-link-item button {
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.diary-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.diary-inline-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.diary-inline-tool-btn {
+  border: none;
+  background: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+}
+
+.diary-inline-link-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.diary-inline-link-input {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: var(--color-divider);
+  color: var(--color-text);
+  outline: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.diary-inline-link-add {
+  border: none;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary-inline-save-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #5a5a3a;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--neu-convex-sm);
+  white-space: nowrap;
+}
+
+.diary-inline-save-btn:disabled {
+  opacity: 0.5;
+}
+
+.diary-inline-save-btn:active {
+  box-shadow: var(--neu-concave);
+}
+
+.diary-upload-spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-divider);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ==================== PC 데스크톱 ==================== */
 @media (min-width: 768px) {
   .diary-nav-btn:hover {
