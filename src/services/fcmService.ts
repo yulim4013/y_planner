@@ -58,18 +58,23 @@ export async function registerFCMToken(uid: string): Promise<string | null> {
 
     if (!subscription) return null
 
-    // 구독 정보를 Firestore에 저장 (같은 기기는 같은 ID로 덮어쓰기)
+    // 구독 정보를 Firestore에 저장 (기기별 고유 ID)
     const endpoint = subscription.endpoint
     const p256dh = arrayBufferToBase64(subscription.getKey('p256dh')!)
-    const auth = arrayBufferToBase64(subscription.getKey('auth')!)
+    const authKey = arrayBufferToBase64(subscription.getKey('auth')!)
 
-    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint))
+    // endpoint + userAgent 조합으로 기기별 고유 ID 생성 (PC/모바일 구분)
+    const uniqueStr = endpoint + '|' + navigator.userAgent
+    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(uniqueStr))
     const subId = arrayBufferToBase64(hashBuffer).slice(0, 20)
+
+    console.log('[Push] endpoint:', endpoint.slice(0, 60) + '...')
+    console.log('[Push] platform:', navigator.platform, '| UA:', navigator.userAgent.slice(0, 80))
 
     const subRef = doc(db, 'users', uid, 'pushSubscriptions', subId)
     await setDoc(subRef, {
       endpoint,
-      keys: { p256dh, auth },
+      keys: { p256dh, auth: authKey },
       platform: navigator.platform || 'unknown',
       userAgent: navigator.userAgent.slice(0, 200),
       createdAt: Timestamp.now(),
