@@ -336,6 +336,20 @@
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
+.tl-sleep-block.tl-active {
+  box-shadow: 0 0 0 2px rgba(147, 130, 220, 0.5);
+  z-index: 10;
+}
+
+.tl-sleep-block .tl-resize-handle::after {
+  background: rgba(147, 130, 220, 0.2);
+}
+
+.tl-sleep-block.tl-active .tl-resize-handle::after {
+  background: rgba(147, 130, 220, 0.4);
+  width: 32px;
+}
+
 .tl-sleep-content {
   display: flex;
   align-items: center;
@@ -373,6 +387,30 @@
   background: rgba(239, 222, 156, 0.15);
   border-radius: 6px;
   border: 1px solid rgba(239, 222, 156, 0.3);
+}
+
+/* 컬럼 분할 시 컴팩트 스타일 */
+.tl-compact-text {
+  font-size: 10px !important;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+.tl-task-compact {
+  padding: 3px 4px;
+  gap: 3px;
+}
+
+.tl-check-compact {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+}
+
+.tl-task-compact .tl-task-check {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
 }
 
 .tl-empty {

@@ -91,7 +91,7 @@ export default function TaskItem({ task, onEdit, categories = [], hideCategory }
 
   const handleToggleSubItem = (e: React.MouseEvent, subItemId: string) => {
     e.stopPropagation()
-    toggleSubItem(task.id, subItems, subItemId, !!task.dueDate)
+    toggleSubItem(task.id, subItems, subItemId, !!task.dueDate, !!task.dueTime)
   }
 
   // 스와이프 중이면 클릭 방지
@@ -131,7 +131,7 @@ export default function TaskItem({ task, onEdit, categories = [], hideCategory }
           className={`task-checkbox ${task.isCompleted ? 'done' : ''}`}
           onClick={(e) => {
             e.stopPropagation()
-            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)
+            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime)
           }}
         >
           {task.isCompleted && (

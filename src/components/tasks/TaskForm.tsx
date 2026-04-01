@@ -83,12 +83,6 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     setSubItems(subItems.filter((s) => s.id !== id))
   }
 
-  const handleToggleSubItem = (id: string) => {
-    setSubItems(subItems.map((s) =>
-      s.id === id ? { ...s, isCompleted: !s.isCompleted } : s
-    ))
-  }
-
   const handleSubmit = async () => {
     if (!title.trim()) return
 
@@ -151,6 +145,31 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
         />
+
+        <div className="task-form-section">
+          <label className="task-form-label">w.</label>
+          {subItems.map((item) => (
+            <div key={item.id} className="sub-item-row">
+              <span>{item.text}</span>
+              <button
+                className="sub-item-remove"
+                onClick={() => handleRemoveSubItem(item.id)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <div className="sub-item-add">
+            <input
+              placeholder="항목 추가..."
+              value={newSubItem}
+              onChange={(e) => setNewSubItem(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddSubItem()}
+            />
+            <button onClick={handleAddSubItem} type="button">+</button>
+          </div>
+        </div>
 
         <div className="task-form-row">
           <label className="task-form-label">우선순위</label>
@@ -238,38 +257,6 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
             />
           </div>
         )}
-
-        <div className="task-form-section">
-          <label className="task-form-label">체크리스트</label>
-          {subItems.map((item) => (
-            <div key={item.id} className="sub-item-row">
-              <button
-                className="sub-item-check"
-                onClick={() => handleToggleSubItem(item.id)}
-                type="button"
-              >
-                {item.isCompleted ? '☑' : '☐'}
-              </button>
-              <span className={item.isCompleted ? 'sub-item-done' : ''}>{item.text}</span>
-              <button
-                className="sub-item-remove"
-                onClick={() => handleRemoveSubItem(item.id)}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <div className="sub-item-add">
-            <input
-              placeholder="항목 추가..."
-              value={newSubItem}
-              onChange={(e) => setNewSubItem(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSubItem()}
-            />
-            <button onClick={handleAddSubItem} type="button">+</button>
-          </div>
-        </div>
 
         <div className="task-form-actions">
           {editTask && (

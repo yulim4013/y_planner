@@ -80,6 +80,8 @@
 .cat-group-none {
   background: var(--color-divider);
   color: var(--color-text-secondary);
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
 .cat-group-count {

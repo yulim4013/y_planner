@@ -316,7 +316,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                     <button
                       className={`daily-task-check ${task.isCompleted ? 'done' : ''}`}
                       style={!task.isCompleted && taskCat ? { boxShadow: `inset 0 0 0 2px ${taskCat.color}` } : undefined}
-                      onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                      onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime) }}
                     >
                       {task.isCompleted && (
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -331,7 +331,7 @@ export default function DailyView({ date, events, tasks, categories = [], onEdit
                   {subItems.length > 0 && (
                     <div className="daily-task-subs">
                       {subItems.map((item) => (
-                        <div key={item.id} className={`daily-sub ${item.isCompleted ? 'daily-sub-done' : ''}`} onClick={() => toggleSubItem(task.id, subItems, item.id, !!task.dueDate)}>
+                        <div key={item.id} className={`daily-sub ${item.isCompleted ? 'daily-sub-done' : ''}`} onClick={() => toggleSubItem(task.id, subItems, item.id, !!task.dueDate, !!task.dueTime)}>
                           <span className={`daily-sub-check ${item.isCompleted ? 'done' : ''}`}>
                             {item.isCompleted && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2L6.5 2.5" stroke="#5a5a3a" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                           </span>

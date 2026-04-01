@@ -265,9 +265,11 @@ export const sendScheduledNotifications = functions
     const userRef = db.collection('users').doc(USER_UID)
     const notifications: Array<{ title: string; body: string; tag: string }> = []
 
-    // 1. 루틴 알림
+    // 1. 루틴 알림 (오늘 날짜 루틴만 조회)
     try {
-      const snap = await userRef.collection('routines').where('time', '!=', null).get()
+      const snap = await userRef.collection('routines')
+        .where('date', '==', todayStr)
+        .get()
       snap.docs.forEach((doc) => {
         const data = doc.data()
         if (data.isCompleted || !data.time) return
@@ -312,7 +314,7 @@ export const sendScheduledNotifications = functions
           notifications.push({
             title: `📅 ${title}`,
             body: data.reminder > 0 ? `${data.reminder}분 후 시작` : '지금 시작',
-            tag: `event-${doc.id}-${todayStr}`,
+            tag: `event-${doc.id}`,
           })
         }
       })

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { toggleTaskComplete, deleteTask, updateTask, addTask } from '../../services/taskService'
 import { deleteEvent, updateEvent, addEvent } from '../../services/eventService'
-import { toggleRoutineComplete } from '../../services/routineService'
+import { toggleRoutineComplete, updateRoutineCheckedAt } from '../../services/routineService'
 import { deleteSleepRecord, updateSleepRecord } from '../../services/sleepService'
 import type { CalendarEvent, Task, Category, Routine, SleepRecord } from '../../types'
 import './TimelineView.css'
@@ -102,7 +102,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const [dragTimeLabel, setDragTimeLabel] = useState('')
 
   const dragRef = useRef<{
-    type: 'event' | 'task'
+    type: 'event' | 'task' | 'routine' | 'sleep'
     id: string
     mode: DragMode
     startY: number
@@ -133,7 +133,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   // ── Unified drag system (touch + mouse, move + resize) ──
   const startDragMode = useCallback((
-    type: 'event' | 'task',
+    type: 'event' | 'task' | 'routine' | 'sleep',
     id: string,
     mode: DragMode,
     element: HTMLElement,
@@ -187,8 +187,19 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 endTime: minutesToTime(Math.min(23 * 60 + 59, newMin + duration)),
               })
             }
-          } else {
+          } else if (type === 'task') {
             updateTask(id, { dueTime: newTime })
+          } else if (type === 'routine') {
+            updateRoutineCheckedAt(id, newTime)
+          } else if (type === 'sleep') {
+            // Sleep drag: move both sleep & wake by same delta
+            const sleepId = id
+            const wakeId = element.dataset.wakeId || ''
+            const durationMin = originalEndMin - originalStartMin
+            const newSleepTime = minutesToTime(newMin)
+            const newWakeTime = minutesToTime(Math.min(23 * 60 + 59, newMin + durationMin))
+            if (sleepId) updateSleepRecord(sleepId, newSleepTime)
+            if (wakeId) updateSleepRecord(wakeId, newWakeTime)
           }
         } else {
           // No significant drag → show action bar
@@ -198,17 +209,38 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           let bl = rect.left + rect.width / 2
           if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
           bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
-          setActionBar({ type, id, barTop: bt, barLeft: bl })
+          if (type === 'sleep') {
+            // Sleep: open edit modal directly
+            const sr = sleepInfo?.sleepRecord
+            const wr = sleepInfo?.wakeRecord
+            if (sr && wr) {
+              setSleepEditSleepTime(sr.time)
+              setSleepEditWakeTime(wr.time)
+              setSleepEditIds({ sleepId: sr.id, wakeId: wr.id })
+              setSleepEditOpen(true)
+            }
+          } else {
+            setActionBar({ type: type as 'event' | 'task', id, barTop: bt, barLeft: bl })
+          }
         }
       } else if (mode === 'resize-top') {
         if (Math.abs(deltaMins) >= 15) {
           const newStart = Math.max(0, Math.min(originalEndMin - 15, originalStartMin + deltaMins))
-          updateEvent(id, { startTime: minutesToTime(newStart) })
+          if (type === 'sleep') {
+            updateSleepRecord(id, minutesToTime(newStart))
+          } else {
+            updateEvent(id, { startTime: minutesToTime(newStart) })
+          }
         }
       } else {
         if (Math.abs(deltaMins) >= 15) {
           const newEnd = Math.max(originalStartMin + 15, Math.min(24 * 60 - 1, originalEndMin + deltaMins))
-          updateEvent(id, { endTime: minutesToTime(newEnd) })
+          if (type === 'sleep') {
+            const wakeId = element.dataset.wakeId || ''
+            if (wakeId) updateSleepRecord(wakeId, minutesToTime(newEnd))
+          } else {
+            updateEvent(id, { endTime: minutesToTime(newEnd) })
+          }
         }
       }
 
@@ -252,7 +284,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   }, [])
 
   // ── Item handlers (long-press → activate/drag) for touch + mouse ──
-  const makeItemHandlers = (type: 'event' | 'task', id: string, originalStartMin: number, originalEndMin?: number) => {
+  const makeItemHandlers = (type: 'event' | 'task' | 'routine' | 'sleep', id: string, originalStartMin: number, originalEndMin?: number) => {
     const endMin = originalEndMin ?? originalStartMin + 60
 
     return {
@@ -306,7 +338,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               document.removeEventListener('mouseup', onUp)
               preMouseRef.current = null
               startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
-            } else if (type === 'task') {
+            } else if (type === 'task' || type === 'routine' || type === 'sleep') {
               lpTriggeredRef.current = true
               document.removeEventListener('mousemove', onMove)
               document.removeEventListener('mouseup', onUp)
@@ -382,6 +414,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       const start = timeToMinutes(displayTime)
       const group = byStart.get(start) || []
       group.push(t.id)
+      byStart.set(start, group)
+    })
+
+    // 완료된 루틴도 컬럼 분할에 포함
+    completedRoutines.forEach((r) => {
+      const d = r.checkedAt!.toDate()
+      const start = Math.floor((d.getHours() * 60 + d.getMinutes()) / 15) * 15
+      const group = byStart.get(start) || []
+      group.push(r.id)
       byStart.set(start, group)
     })
 
@@ -736,7 +777,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
                   style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
-                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime) }}
                 >
                   {task.isCompleted && (
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -894,7 +935,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                           <button
                             className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
                             style={!task.isCompleted && taskCat ? { boxShadow: `inset 0 0 0 2px ${taskCat.color}` } : undefined}
-                            onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                            onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime) }}
                           >
                             {task.isCompleted && (
                               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -930,11 +971,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const colStyle = colInfo.total > 1
               ? { left: `calc(66px + (100% - 74px) * ${colInfo.col} / ${colInfo.total})`, width: `calc((100% - 74px) / ${colInfo.total})`, right: 'auto' as const }
               : {}
+            const isCompact = colInfo.total > 1
 
             return (
               <div
                 key={task.id}
-                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
+                className={`tl-task-row ${isDragging ? 'tl-dragging' : ''} ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''} ${isCompact ? 'tl-task-compact' : ''}`}
                 style={{
                   top,
                   ...colStyle,
@@ -945,9 +987,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 onDoubleClick={() => handleItemDoubleClick('task', task)}
               >
                 <button
-                  className={`tl-task-check ${task.isCompleted ? 'done' : ''}`}
+                  className={`tl-task-check ${task.isCompleted ? 'done' : ''} ${isCompact ? 'tl-check-compact' : ''}`}
                   style={!task.isCompleted && cat ? { boxShadow: `inset 0 0 0 2px ${cat.color}` } : undefined}
-                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                  onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime) }}
                 >
                   {task.isCompleted && (
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -955,42 +997,88 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                     </svg>
                   )}
                 </button>
-                <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''}`}>{task.title}</span>
-                {cat && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
+                <span className={`tl-task-title ${task.isCompleted ? 'tl-done' : ''} ${isCompact ? 'tl-compact-text' : ''}`}>{task.title}</span>
+                {cat && !isCompact && <span className="tl-task-cat-text" style={{ color: cat.color }}>{cat.name}</span>}
               </div>
             )
           })}
 
-          {/* 수면 블록 → 탭 시 바로 수정 모달 */}
-          {sleepBlocks.map((block, i) => (
-            <div
-              key={`sleep-${i}`}
-              className={`tl-sleep-block`}
-              style={{ top: block.top, height: Math.max(block.height, 40) }}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (lpTriggeredRef.current || (Date.now() - lpTriggeredTimeRef.current < 600)) { lpTriggeredRef.current = false; return }
-                if (actionBar || draggedId) return
-                // 바로 수정 모달 열기
-                const sr = sleepInfo?.sleepRecord
-                const wr = sleepInfo?.wakeRecord
-                if (sr && wr) {
-                  setSleepEditSleepTime(sr.time)
-                  setSleepEditWakeTime(wr.time)
-                  setSleepEditIds({ sleepId: sr.id, wakeId: wr.id })
-                  setSleepEditOpen(true)
-                }
-              }}
-            >
-              <div className="tl-sleep-content">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 4h6l-6 6h6"/><path d="M12 2h4l-4 4h4"/><path d="M18 8h2l-2 2h2"/>
-                </svg>
-                <span className="tl-sleep-label">{block.label}</span>
-                <span className="tl-sleep-detail">{block.detail}</span>
+          {/* 수면 블록 → 드래그/리사이즈 지원 */}
+          {sleepBlocks.map((block, i) => {
+            const sleepStartMin = Math.round((block.top / HOUR_HEIGHT) * 60)
+            const sleepEndMin = Math.round(((block.top + block.height) / HOUR_HEIGHT) * 60)
+            const isDragging = draggedId === block.sleepId
+            const isMoving = isDragging && dragMode === 'move'
+            const isResizing = isDragging && dragMode !== 'move'
+            const handlers = makeItemHandlers('sleep', block.sleepId, sleepStartMin, sleepEndMin)
+            const isActive = activeEventId === `sleep-${block.sleepId}`
+
+            let blockTop = block.top
+            let blockHeight = Math.max(block.height, 40)
+            if (isDragging && dragMode === 'resize-top') {
+              const deltaMins = Math.round((dragDeltaY / HOUR_HEIGHT) * 60 / 15) * 15
+              const newStart = Math.max(0, Math.min(sleepEndMin - 15, sleepStartMin + deltaMins))
+              blockTop = (newStart / 60) * HOUR_HEIGHT
+              blockHeight = ((sleepEndMin - newStart) / 60) * HOUR_HEIGHT
+            } else if (isDragging && dragMode === 'resize-bottom') {
+              const deltaMins = Math.round((dragDeltaY / HOUR_HEIGHT) * 60 / 15) * 15
+              const newEnd = Math.max(sleepStartMin + 15, Math.min(24 * 60 - 1, sleepEndMin + deltaMins))
+              blockHeight = ((newEnd - sleepStartMin) / 60) * HOUR_HEIGHT
+            }
+
+            return (
+              <div
+                key={`sleep-${i}`}
+                className={`tl-sleep-block ${isDragging ? 'tl-dragging' : ''} ${isActive ? 'tl-active' : ''}`}
+                style={{
+                  top: blockTop,
+                  height: Math.max(blockHeight, 40),
+                  ...(isMoving ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                  ...(isResizing ? { zIndex: 100 } : {}),
+                }}
+                data-wake-id={block.wakeId}
+                {...handlers}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (lpTriggeredRef.current || (Date.now() - lpTriggeredTimeRef.current < 600)) { lpTriggeredRef.current = false; return }
+                  if (actionBar || draggedId) return
+                  // 바로 수정 모달 열기
+                  const sr = sleepInfo?.sleepRecord
+                  const wr = sleepInfo?.wakeRecord
+                  if (sr && wr) {
+                    setSleepEditSleepTime(sr.time)
+                    setSleepEditWakeTime(wr.time)
+                    setSleepEditIds({ sleepId: sr.id, wakeId: wr.id })
+                    setSleepEditOpen(true)
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  setActiveEventId(isActive ? null : `sleep-${block.sleepId}`)
+                }}
+              >
+                {/* Top resize handle */}
+                {isActive && <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => { e.stopPropagation(); const el = (e.currentTarget as HTMLElement).closest('.tl-sleep-block') as HTMLElement; startDragMode('sleep', block.sleepId, 'resize-top', el, sleepStartMin, sleepEndMin, e.touches[0].clientY, 'touch') }}
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); const el = (e.currentTarget as HTMLElement).closest('.tl-sleep-block') as HTMLElement; startDragMode('sleep', block.sleepId, 'resize-top', el, sleepStartMin, sleepEndMin, e.clientY, 'mouse') }}
+                />}
+
+                <div className="tl-sleep-content">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4h6l-6 6h6"/><path d="M12 2h4l-4 4h4"/><path d="M18 8h2l-2 2h2"/>
+                  </svg>
+                  <span className="tl-sleep-label">{block.label}</span>
+                  <span className="tl-sleep-detail">{block.detail}</span>
+                </div>
+
+                {/* Bottom resize handle */}
+                {isActive && <div className="tl-resize-handle tl-resize-bottom" onClick={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => { e.stopPropagation(); const el = (e.currentTarget as HTMLElement).closest('.tl-sleep-block') as HTMLElement; startDragMode('sleep', block.sleepId, 'resize-bottom', el, sleepStartMin, sleepEndMin, e.touches[0].clientY, 'touch') }}
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); const el = (e.currentTarget as HTMLElement).closest('.tl-sleep-block') as HTMLElement; startDragMode('sleep', block.sleepId, 'resize-bottom', el, sleepStartMin, sleepEndMin, e.clientY, 'mouse') }}
+                />}
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {/* 꾹 누르기 위치 인디케이터 */}
           {lpIndicator && (
@@ -1005,15 +1093,32 @@ export default function TimelineView({ events, tasks, routines = [], categories 
             const d = routine.checkedAt!.toDate()
             const min = d.getHours() * 60 + d.getMinutes()
             const top = (min / 60) * HOUR_HEIGHT
+            const isDragging = draggedId === routine.id
+            const handlers = makeItemHandlers('routine', routine.id, min)
+            const colInfo = itemColumns.get(routine.id) || { col: 0, total: 1 }
+            const colStyle = colInfo.total > 1
+              ? { left: `calc(66px + (100% - 74px) * ${colInfo.col} / ${colInfo.total})`, width: `calc((100% - 74px) / ${colInfo.total})`, right: 'auto' as const }
+              : {}
+            const isCompact = colInfo.total > 1
+
             return (
-              <div key={routine.id} className="tl-routine-row" style={{ top }}>
-                <button className="tl-task-check done" onClick={() => toggleRoutineComplete(routine.id, routine.isCompleted)}>
+              <div
+                key={routine.id}
+                className={`tl-routine-row ${isDragging ? 'tl-dragging' : ''}`}
+                style={{
+                  top,
+                  ...colStyle,
+                  ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
+                }}
+                {...handlers}
+              >
+                <button className="tl-task-check done" onClick={(e) => { e.stopPropagation(); toggleRoutineComplete(routine.id, routine.isCompleted) }}>
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.5 6l2.5 2.5L9.5 4" stroke="#5a5a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                <span className="tl-routine-icon" dangerouslySetInnerHTML={{ __html: ROUTINE_ICON_MAP[routine.iconId] || ROUTINE_ICON_MAP.stretch }} />
-                <span className="tl-task-title tl-done">{routine.title}</span>
+                {!isCompact && <span className="tl-routine-icon" dangerouslySetInnerHTML={{ __html: ROUTINE_ICON_MAP[routine.iconId] || ROUTINE_ICON_MAP.stretch }} />}
+                <span className={`tl-task-title tl-done ${isCompact ? 'tl-compact-text' : ''}`}>{routine.title}</span>
               </div>
             )
           })}

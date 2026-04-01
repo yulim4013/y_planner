@@ -239,7 +239,7 @@ export default function WeeklyView({
                           className={`wv-check ${task.isCompleted ? 'done' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)
+                            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime)
                           }}
                         >
                           {task.isCompleted && (
@@ -364,7 +364,7 @@ export default function WeeklyView({
                           className={`wv-check ${task.isCompleted ? 'done' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate)
+                            toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime)
                           }}
                         >
                           {task.isCompleted && (

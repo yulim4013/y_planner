@@ -826,7 +826,7 @@ export default function DashboardPage() {
                 >
                   <button
                     className={`dash-task-check ${task.isCompleted ? 'done' : ''}`}
-                    onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate) }}
+                    onClick={(e) => { e.stopPropagation(); toggleTaskComplete(task.id, task.isCompleted, !!task.dueDate, !!task.dueTime) }}
                   >
                     {task.isCompleted && (
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

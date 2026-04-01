@@ -220,6 +220,16 @@ export async function updateRoutineOrder(routineId: string, newOrder: number) {
   await updateDoc(doc(ref, routineId), { order: newOrder, updatedAt: Timestamp.now() })
 }
 
+export async function updateRoutineCheckedAt(routineId: string, newTime: string) {
+  const ref = getRoutinesRef()
+  if (!ref) return
+  // newTime: 'HH:mm' → 오늘 날짜 기준 Timestamp 생성
+  const [h, m] = newTime.split(':').map(Number)
+  const d = new Date()
+  d.setHours(h, m, 0, 0)
+  await updateDoc(doc(ref, routineId), { checkedAt: Timestamp.fromDate(d), updatedAt: Timestamp.now() })
+}
+
 export async function deleteRoutine(routineId: string) {
   const ref = getRoutinesRef()
   if (!ref) return

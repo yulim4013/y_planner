@@ -109,7 +109,7 @@ export async function updateTask(taskId: string, data: Partial<Omit<Task, 'id' |
   })
 }
 
-export async function toggleTaskComplete(taskId: string, isCompleted: boolean, hasDueDate: boolean) {
+export async function toggleTaskComplete(taskId: string, isCompleted: boolean, hasDueDate: boolean, hasDueTime: boolean = false) {
   const ref = getTasksRef()
   if (!ref) return
 
@@ -136,7 +136,8 @@ export async function toggleTaskComplete(taskId: string, isCompleted: boolean, h
   }
 
   // 시간 미지정 태스크 완료 시 → 완료 시각을 dueTime으로 기록 (종일→시간 슬롯 이동)
-  if (willComplete && completedTime) {
+  // 시간 지정된 태스크는 원래 dueTime 유지
+  if (willComplete && completedTime && !hasDueTime) {
     updates.dueTime = completedTime
   }
 
@@ -149,6 +150,7 @@ export async function toggleSubItem(
   subItems: { id: string; text: string; isCompleted: boolean; order: number }[],
   subItemId: string,
   hasDueDate: boolean,
+  hasDueTime: boolean = false,
 ) {
   const ref = getTasksRef()
   if (!ref) return
@@ -176,7 +178,10 @@ export async function toggleSubItem(
       updates.dueDate = Timestamp.fromDate(today)
     }
     // 시간 미지정 태스크 → 완료 시각을 dueTime으로 기록
-    updates.dueTime = updates.completedTime
+    // 시간 지정된 태스크는 원래 dueTime 유지
+    if (!hasDueTime) {
+      updates.dueTime = updates.completedTime
+    }
   } else {
     // 체크리스트 항목 하나라도 해제하면 task도 미완료로
     updates.isCompleted = false
