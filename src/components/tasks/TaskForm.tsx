@@ -162,12 +162,11 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
           ))}
           <div className="sub-item-add">
             <input
-              placeholder="항목 추가..."
+              placeholder="항목 추가 (Enter)"
               value={newSubItem}
               onChange={(e) => setNewSubItem(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddSubItem()}
             />
-            <button onClick={handleAddSubItem} type="button">+</button>
           </div>
         </div>
 

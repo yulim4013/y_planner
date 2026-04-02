@@ -78,7 +78,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, selectedItemId, onSelectItem, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, selectedItemId, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -298,8 +298,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           lpTriggeredRef.current = true
           lpTriggeredTimeRef.current = Date.now()
           // 꾹 누르기 → 활성화 (리사이즈 핸들 표시) 또는 드래그 시작
-          if (type === 'event' && activeEventId !== id) {
-            setActiveEventId(id)
+          const activeKey = type === 'sleep' ? `sleep-${id}` : id
+          if ((type === 'event' || type === 'sleep') && activeEventId !== activeKey) {
+            setActiveEventId(activeKey)
             try { navigator.vibrate?.(25) } catch {}
           } else {
             startDragMode(type, id, 'move', el, originalStartMin, endMin, touch.clientY, 'touch')
@@ -536,12 +537,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     }
     if (actionBar || draggedId) return
     if (activeEventId) setActiveEventId(null)
-    // 싱글 클릭 → 선택 (더블 클릭은 수정)
-    if (onSelectItem) onSelectItem(type, item.id)
-    else {
-      if (type === 'event') onEditEvent(item as CalendarEvent)
-      else onEditTask(item as Task)
-    }
+    // 싱글 클릭 → 수정 페이지 바로 열기
+    if (type === 'event') onEditEvent(item as CalendarEvent)
+    else onEditTask(item as Task)
   }
 
   const handleItemDoubleClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {

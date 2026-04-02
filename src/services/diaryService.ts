@@ -9,7 +9,7 @@ import {
   onSnapshot,
   Timestamp,
 } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
+import { ref, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
 import type { DiaryEntry, DiaryPhoto, Mood } from '../types'
@@ -66,37 +66,41 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   const storagePath = `users/${uid}/diary/${fileName}`
   const storageRef = ref(storage, storagePath)
 
-  const doUpload = async (attempt: number): Promise<DiaryPhoto> => {
+  const doUpload = async (attempt: number, useSimple: boolean = false): Promise<DiaryPhoto> => {
     const metadata = { contentType: 'image/jpeg' }
-    console.log(`[diary] uploading (attempt ${attempt}):`, storagePath, 'size:', uploadFile.size)
+    console.log(`[diary] uploading (attempt ${attempt}, simple=${useSimple}):`, storagePath, 'size:', uploadFile.size)
 
     try {
-      // uploadBytesResumable 사용 (모바일 네트워크에서 안정적)
-      const uploadTask = uploadBytesResumable(storageRef, uploadFile, metadata)
+      if (useSimple) {
+        // 단순 업로드 (resumable 실패 시 fallback)
+        await withTimeout(uploadBytes(storageRef, uploadFile, metadata), 90000, 'uploadBytes')
+      } else {
+        // resumable 업로드
+        const uploadTask = uploadBytesResumable(storageRef, uploadFile, metadata)
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            uploadTask.cancel()
+            reject(new Error('업로드 시간 초과'))
+          }, 90000)
 
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          uploadTask.cancel()
-          reject(new Error('업로드 시간 초과'))
-        }, 90000)
-
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-            console.log(`[diary] upload progress: ${pct}%`)
-          },
-          (error) => {
-            clearTimeout(timer)
-            console.error('[diary] upload error:', error.code, error.message, error.serverResponse)
-            reject(error)
-          },
-          () => {
-            clearTimeout(timer)
-            console.log('[diary] upload complete')
-            resolve()
-          }
-        )
-      })
+          uploadTask.on('state_changed',
+            (snapshot) => {
+              const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+              console.log(`[diary] upload progress: ${pct}%`)
+            },
+            (error) => {
+              clearTimeout(timer)
+              console.error('[diary] upload error:', error.code, error.message, error.serverResponse)
+              reject(error)
+            },
+            () => {
+              clearTimeout(timer)
+              console.log('[diary] upload complete')
+              resolve()
+            }
+          )
+        })
+      }
 
       const url = await withTimeout(getDownloadURL(storageRef), 15000, 'getDownloadURL')
       console.log('[diary] success:', url.slice(0, 60) + '...')
@@ -111,11 +115,17 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
       console.error(`[diary] attempt ${attempt} failed:`, err?.code, err?.message)
       const code = err?.code || ''
 
-      // storage/unknown 에러는 재시도 (일시적 네트워크 문제일 수 있음)
-      if (code === 'storage/unknown' && attempt < 3) {
-        console.log(`[diary] retrying in ${attempt * 2}s...`)
-        await new Promise((r) => setTimeout(r, attempt * 2000))
-        return doUpload(attempt + 1)
+      // storage/unknown: 1차 → 단순 업로드로 재시도, 2차 → 대기 후 재시도
+      if (code === 'storage/unknown') {
+        if (!useSimple) {
+          console.log('[diary] retrying with simple upload...')
+          return doUpload(attempt + 1, true)
+        }
+        if (attempt < 4) {
+          console.log(`[diary] retrying in ${attempt}s...`)
+          await new Promise((r) => setTimeout(r, attempt * 1000))
+          return doUpload(attempt + 1, true)
+        }
       }
 
       if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {

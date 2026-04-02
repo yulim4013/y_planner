@@ -129,6 +129,10 @@
   gap: 8px;
 }
 
+.cp-grouped > .cp-btn {
+  align-self: flex-start;
+}
+
 .cp-group {
   display: flex;
   flex-direction: column;
