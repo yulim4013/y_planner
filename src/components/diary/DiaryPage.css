@@ -774,6 +774,43 @@
   max-width: 100%;
 }
 
+/* ==================== 피드 팝업 ==================== */
+.diary-feed-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.diary-feed-popup {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.diary-feed-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--color-divider);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ==================== PC 피드 ==================== */
 @media (min-width: 768px) {
   .diary-feed-grid {

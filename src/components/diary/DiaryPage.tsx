@@ -88,11 +88,17 @@ export default function DiaryPage() {
     ? entries.find((e) => isSameDayFn(e.date.toDate(), selectedDate))
     : null
 
-  // 피드용: 최신순 정렬
-  const feedEntries = useMemo(() =>
-    [...entries].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime()),
-    [entries]
-  )
+  // 피드용: 현재 월 필터 + 최신순 정렬
+  const feedEntries = useMemo(() => {
+    const ms = startOfMonth(currentMonth)
+    const me = endOfMonth(currentMonth)
+    return entries
+      .filter((e) => { const d = e.date.toDate(); return d >= ms && d <= me })
+      .sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime())
+  }, [entries, currentMonth])
+
+  // 피드에서 선택한 일기 (팝업용)
+  const [feedSelectedEntry, setFeedSelectedEntry] = useState<DiaryEntry | null>(null)
 
   const handlePrevMonth = useCallback(() => setCurrentMonth((d) => subMonths(d, 1)), [])
   const handleNextMonth = useCallback(() => setCurrentMonth((d) => addMonths(d, 1)), [])
@@ -458,11 +464,7 @@ export default function DiaryPage() {
               <div
                 key={entry.id}
                 className="diary-feed-card"
-                onClick={() => {
-                  setViewMode('calendar')
-                  setCurrentMonth(d)
-                  setSelectedDate(d)
-                }}
+                onClick={() => setFeedSelectedEntry(entry)}
               >
                 <div className="diary-feed-date-top">{dateLabel}</div>
                 <div className="diary-feed-thumb">
@@ -483,6 +485,57 @@ export default function DiaryPage() {
           })
         )}
       </div>
+      )}
+
+      {/* 피드 팝업 */}
+      {feedSelectedEntry && (
+        <div className="diary-feed-overlay" onClick={() => setFeedSelectedEntry(null)}>
+          <div className="diary-feed-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="diary-entry-header">
+              <span className="diary-entry-date-label">
+                {format(feedSelectedEntry.date.toDate(), 'M월 d일 EEEE', { locale: ko })}
+              </span>
+              <div className="diary-entry-actions">
+                <button className="diary-edit-btn" onClick={() => {
+                  setEditEntry(feedSelectedEntry)
+                  setFormOpen(true)
+                  setFeedSelectedEntry(null)
+                }}>수정</button>
+                <button className="diary-delete-btn" onClick={() => {
+                  handleDeleteEntry(feedSelectedEntry.id)
+                  setFeedSelectedEntry(null)
+                }}>삭제</button>
+                <button className="diary-feed-close" onClick={() => setFeedSelectedEntry(null)}>x</button>
+              </div>
+            </div>
+            {feedSelectedEntry.mood && (
+              <span className="diary-mood-display">
+                <span className="diary-mood-emoji">{MOOD_EMOJI[feedSelectedEntry.mood]}</span>
+                <span className="diary-mood-text">{MOOD_LABEL[feedSelectedEntry.mood]}</span>
+              </span>
+            )}
+            {feedSelectedEntry.title && <h4 className="diary-entry-title">{feedSelectedEntry.title}</h4>}
+            <p className="diary-entry-content">{feedSelectedEntry.content}</p>
+            {feedSelectedEntry.photos && feedSelectedEntry.photos.length > 0 && (
+              <div className="diary-entry-photos">
+                {feedSelectedEntry.photos.map((photo, i) => (
+                  <div key={i} className="diary-entry-photo">
+                    <img src={photo.url} alt="" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {feedSelectedEntry.links && feedSelectedEntry.links.length > 0 && (
+              <div className="diary-entry-links">
+                {feedSelectedEntry.links.map((link, i) => (
+                  <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="diary-entry-link">
+                    {link.replace(/^https?:\/\//, '').slice(0, 50)}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <DiaryForm
