@@ -13,6 +13,7 @@ import {
 import { db } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
 import type { Task } from '../types'
+import { syncTaskToGcal, deleteTaskFromGcal } from './googleCalendarService'
 
 function getTasksRef() {
   const uid = useAuthStore.getState().user?.uid
@@ -78,12 +79,12 @@ export async function addTask(data: {
   if (!ref) return null
 
   const now = Timestamp.now()
-  return addDoc(ref, {
+  const docData = {
     title: data.title,
     description: data.description || '',
     projectId: data.projectId || null,
     priority: data.priority || 'medium',
-    status: 'todo',
+    status: 'todo' as const,
     dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
     dueTime: data.dueTime || null,
     categoryId: data.categoryId || null,
@@ -93,9 +94,16 @@ export async function addTask(data: {
     subItems: data.subItems || [],
     isCompleted: false,
     completedAt: null,
+    completedTime: null,
     createdAt: now,
     updatedAt: now,
-  })
+  }
+  const docRef = await addDoc(ref, docData)
+
+  syncTaskToGcal({ id: docRef.id, ...docData } as Task)
+    .catch((e) => console.error('GCal Task 동기화 실패:', e))
+
+  return docRef
 }
 
 export async function updateTask(taskId: string, data: Partial<Omit<Task, 'id' | 'createdAt'>>) {
@@ -107,6 +115,13 @@ export async function updateTask(taskId: string, data: Partial<Omit<Task, 'id' |
     ...data,
     updatedAt: Timestamp.now(),
   })
+
+  const { getDoc: getDocument } = await import('firebase/firestore')
+  getDocument(taskDoc).then((snap) => {
+    if (snap.exists()) {
+      syncTaskToGcal({ id: snap.id, ...snap.data() } as Task)
+    }
+  }).catch((e) => console.error('GCal Task 동기화 실패:', e))
 }
 
 export async function toggleTaskComplete(taskId: string, isCompleted: boolean, hasDueDate: boolean, hasDueTime: boolean = false) {
@@ -198,5 +213,6 @@ export async function deleteTask(taskId: string) {
   const ref = getTasksRef()
   if (!ref) return
 
+  deleteTaskFromGcal(taskId).catch((e) => console.error('GCal Task 삭제 실패:', e))
   await deleteDoc(doc(ref, taskId))
 }

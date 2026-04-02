@@ -5,9 +5,10 @@ import {
   getCalendarSettings,
   saveCalendarSettings,
   getCalendarAccessToken,
-  syncAllEventsToGcal,
+  syncAllToGcal,
 } from '../../services/googleCalendarService'
 import { subscribeEvents } from '../../services/eventService'
+import { subscribeTasks } from '../../services/taskService'
 import Header from '../layout/Header'
 import GlassCard from '../common/GlassCard'
 import CategoryManager from './CategoryManager'
@@ -41,15 +42,22 @@ export default function MorePage() {
 
         toast.promise(
           new Promise<number>((resolve) => {
-            const unsub = subscribeEvents(async (events) => {
-              unsub()
-              const count = await syncAllEventsToGcal(events) || 0
+            let events: import('../../types').CalendarEvent[] = []
+            let tasks: import('../../types').Task[] = []
+            let loaded = 0
+            const check = async () => {
+              if (++loaded < 2) return
+              unsubE()
+              unsubT()
+              const count = await syncAllToGcal(events, tasks) || 0
               resolve(count)
-            })
+            }
+            const unsubE = subscribeEvents((e) => { events = e; check() })
+            const unsubT = subscribeTasks((t) => { tasks = t; check() })
           }),
           {
-            loading: '기존 일정 동기화 중...',
-            success: (count) => `${count}개 일정 동기화 완료`,
+            loading: '기존 일정/태스크 동기화 중...',
+            success: (count) => `${count}개 항목 동기화 완료`,
             error: '동기화 중 오류 발생',
           }
         )

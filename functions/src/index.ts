@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import * as webpush from 'web-push'
+import { google } from 'googleapis'
 
 admin.initializeApp()
 
@@ -9,6 +10,9 @@ const db = admin.firestore()
 // 환경변수
 const SECRET = process.env.SHORTCUT_SECRET || ''
 const USER_UID = process.env.USER_UID || ''
+const GCAL_CLIENT_EMAIL = process.env.GCAL_CLIENT_EMAIL || ''
+const GCAL_PRIVATE_KEY = (process.env.GCAL_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+const GCAL_CALENDAR_ID = process.env.GCAL_CALENDAR_ID || ''
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
 
@@ -366,4 +370,156 @@ export const sendScheduledNotifications = functions
     }
 
     return null
+  })
+
+// --- Google Calendar 헬퍼 (서비스 계정) ---
+
+const COLOR_MAP: Record<string, string> = {
+  '#FFD1DC': '4', '#C5D5F5': '9', '#C8E6C9': '2', '#D1C4E9': '1',
+  '#FFE0B2': '6', '#FFF9C4': '5', '#B2DFDB': '2', '#FFCCBC': '4',
+  '#E1BEE7': '3', '#B3E5FC': '7',
+}
+
+async function getGcalClient() {
+  if (!GCAL_CLIENT_EMAIL || !GCAL_PRIVATE_KEY) return null
+  const authClient = new google.auth.JWT({
+    email: GCAL_CLIENT_EMAIL,
+    key: GCAL_PRIVATE_KEY,
+    scopes: ['https://www.googleapis.com/auth/calendar.events'],
+  })
+  return google.calendar({ version: 'v3', auth: authClient })
+}
+
+async function getCategoryColor(uid: string, categoryId: string | null): Promise<string | undefined> {
+  if (!categoryId) return undefined
+  const snap = await db.collection('users').doc(uid).collection('categories').doc(categoryId).get()
+  return snap.exists ? (snap.data()?.color as string) : undefined
+}
+
+/**
+ * Apple Shortcuts용 항목 추가 (일정/태스크)
+ * POST body: { type: 'event' | 'task', title, date, startTime?, endTime?, isAllDay?, categoryId?, description?, priority? }
+ */
+export const addItem = functions
+  .region('asia-northeast3')
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+    if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return }
+    if (!auth(req, res)) return
+
+    const {
+      type, title, date, startTime, endTime,
+      isAllDay, categoryId, description, priority,
+    } = req.body as {
+      type: 'event' | 'task'
+      title: string
+      date: string          // YYYY-MM-DD
+      startTime?: string    // HH:mm
+      endTime?: string      // HH:mm
+      isAllDay?: boolean
+      categoryId?: string
+      description?: string
+      priority?: 'high' | 'medium' | 'low'
+    }
+
+    if (!type || !title || !date) {
+      res.status(400).json({ error: 'type, title, date 필수' })
+      return
+    }
+
+    const now = admin.firestore.Timestamp.now()
+    const dateObj = new Date(date + 'T00:00:00+09:00')
+    const dateTs = admin.firestore.Timestamp.fromDate(dateObj)
+    const allDay = isAllDay ?? !startTime
+
+    let docId: string
+
+    if (type === 'event') {
+      const eventData = {
+        title,
+        description: description || '',
+        startDate: dateTs,
+        endDate: dateTs,
+        startTime: startTime || null,
+        endTime: endTime || startTime || null,
+        isAllDay: allDay,
+        categoryId: categoryId || null,
+        location: '',
+        repeat: 'none',
+        repeatEndDate: null,
+        reminder: null,
+        createdAt: now,
+        updatedAt: now,
+      }
+      const ref = await db.collection('users').doc(USER_UID).collection('events').add(eventData)
+      docId = ref.id
+    } else {
+      const taskData = {
+        title,
+        description: description || '',
+        projectId: null,
+        priority: priority || 'medium',
+        status: 'todo',
+        dueDate: dateTs,
+        dueTime: startTime || null,
+        categoryId: categoryId || null,
+        reminder: null,
+        repeat: 'none',
+        repeatEndDate: null,
+        subItems: [],
+        isCompleted: false,
+        completedAt: null,
+        completedTime: null,
+        createdAt: now,
+        updatedAt: now,
+      }
+      const ref = await db.collection('users').doc(USER_UID).collection('tasks').add(taskData)
+      docId = ref.id
+    }
+
+    // Google Calendar 동기화
+    try {
+      const cal = await getGcalClient()
+      if (cal && GCAL_CALENDAR_ID) {
+        const color = await getCategoryColor(USER_UID, categoryId || null)
+        const colorId = color ? COLOR_MAP[color.toUpperCase()] : undefined
+
+        const gcalEvent: Record<string, unknown> = {
+          summary: type === 'task' ? `[TODO] ${title}` : title,
+          description: description || undefined,
+          ...(colorId && { colorId }),
+        }
+
+        if (allDay) {
+          const endDate = new Date(dateObj)
+          endDate.setDate(endDate.getDate() + 1)
+          gcalEvent.start = { date }
+          gcalEvent.end = { date: endDate.toISOString().split('T')[0] }
+        } else {
+          const startDt = new Date(date + 'T' + (startTime || '09:00') + ':00+09:00')
+          const endDt = endTime
+            ? new Date(date + 'T' + endTime + ':00+09:00')
+            : new Date(startDt.getTime() + 30 * 60000)
+          gcalEvent.start = { dateTime: startDt.toISOString(), timeZone: 'Asia/Seoul' }
+          gcalEvent.end = { dateTime: endDt.toISOString(), timeZone: 'Asia/Seoul' }
+        }
+
+        const result = await cal.events.insert({
+          calendarId: GCAL_CALENDAR_ID,
+          requestBody: gcalEvent as any,
+        })
+
+        // 매핑 저장
+        if (result.data.id) {
+          const mappingKey = type === 'task' ? `task_${docId}` : docId
+          await db.collection('users').doc(USER_UID).collection('settings').doc('gcalMapping')
+            .set({ [mappingKey]: result.data.id }, { merge: true })
+        }
+      }
+    } catch (err) {
+      console.error('[addItem] GCal sync error:', err)
+    }
+
+    res.status(200).json({ ok: true, type, id: docId, title, date })
   })

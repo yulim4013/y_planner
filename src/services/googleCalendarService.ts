@@ -1,8 +1,8 @@
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
-import { doc, getDoc, setDoc, deleteField } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteField, collection, getDocs } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
-import type { CalendarEvent } from '../types'
+import type { CalendarEvent, Task, Category } from '../types'
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
@@ -81,9 +81,52 @@ async function removeGcalEventId(eventId: string) {
   await setDoc(ref, { [eventId]: deleteField() }, { merge: true })
 }
 
+// --- Color Mapping ---
+// Google Calendar colorId (1-11) mapped to closest app pastel colors
+
+const COLOR_MAP: Record<string, string> = {
+  '#FFD1DC': '4',  // 분홍 → Flamingo
+  '#C5D5F5': '9',  // 파랑 → Blueberry
+  '#C8E6C9': '2',  // 초록 → Sage
+  '#D1C4E9': '1',  // 보라 → Lavender
+  '#FFE0B2': '6',  // 주황 → Tangerine
+  '#FFF9C4': '5',  // 노랑 → Banana
+  '#B2DFDB': '2',  // 민트 → Sage
+  '#FFCCBC': '4',  // 복숭아 → Flamingo
+  '#E1BEE7': '3',  // 라벤더 → Grape
+  '#B3E5FC': '7',  // 하늘 → Peacock
+}
+
+function hexToColorId(hex: string | undefined): string | undefined {
+  if (!hex) return undefined
+  return COLOR_MAP[hex.toUpperCase()] || undefined
+}
+
+// 카테고리 캐시
+let categoryCache: Map<string, Category> | null = null
+
+async function loadCategories(): Promise<Map<string, Category>> {
+  if (categoryCache) return categoryCache
+  const uid = useAuthStore.getState().user?.uid
+  if (!uid || !db) return new Map()
+  const snap = await getDocs(collection(db, 'users', uid, 'categories'))
+  categoryCache = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() } as Category]))
+  return categoryCache
+}
+
+export function clearCategoryCache() {
+  categoryCache = null
+}
+
+async function getCategoryColor(categoryId: string | null): Promise<string | undefined> {
+  if (!categoryId) return undefined
+  const cats = await loadCategories()
+  return cats.get(categoryId)?.color
+}
+
 // --- CalendarEvent -> Google Calendar Event ---
 
-function toGcalEvent(event: CalendarEvent) {
+function toGcalEvent(event: CalendarEvent, colorId?: string) {
   const startDate = event.startDate.toDate()
   const endDate = event.endDate.toDate()
 
@@ -91,6 +134,7 @@ function toGcalEvent(event: CalendarEvent) {
     summary: event.title,
     description: event.description || undefined,
     location: event.location || undefined,
+    ...(colorId && { colorId }),
   }
 
   if (event.isAllDay) {
@@ -139,6 +183,58 @@ function toGcalEvent(event: CalendarEvent) {
   return base
 }
 
+// --- Task -> Google Calendar Event ---
+
+function taskToGcalEvent(task: Task, colorId?: string) {
+  const base: Record<string, unknown> = {
+    summary: `[TODO] ${task.title}`,
+    description: task.description || undefined,
+    ...(colorId && { colorId }),
+  }
+
+  if (!task.dueDate) return null // 날짜 없으면 동기화 불가
+
+  const dueDate = task.dueDate.toDate()
+
+  if (!task.dueTime) {
+    // 종일 이벤트
+    const fmt = (d: Date) => d.toISOString().split('T')[0]
+    const end = new Date(dueDate)
+    end.setDate(end.getDate() + 1)
+    base.start = { date: fmt(dueDate) }
+    base.end = { date: fmt(end) }
+  } else {
+    const [h, m] = task.dueTime.split(':')
+    const start = new Date(dueDate)
+    start.setHours(Number(h), Number(m), 0, 0)
+    const end = new Date(start)
+    end.setMinutes(end.getMinutes() + 30) // 기본 30분
+    base.start = { dateTime: start.toISOString(), timeZone: 'Asia/Seoul' }
+    base.end = { dateTime: end.toISOString(), timeZone: 'Asia/Seoul' }
+  }
+
+  if (task.repeat !== 'none') {
+    const freqMap: Record<string, string> = {
+      daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY',
+    }
+    let rrule = `RRULE:FREQ=${freqMap[task.repeat]}`
+    if (task.repeatEndDate) {
+      const until = task.repeatEndDate.toDate().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+      rrule += `;UNTIL=${until}`
+    }
+    base.recurrence = [rrule]
+  }
+
+  if (task.reminder != null) {
+    base.reminders = {
+      useDefault: false,
+      overrides: [{ method: 'popup', minutes: task.reminder }],
+    }
+  }
+
+  return base
+}
+
 // --- API Calls ---
 
 async function apiCall(method: string, url: string, body?: unknown) {
@@ -170,19 +266,59 @@ export async function syncEventToGcal(event: CalendarEvent) {
   if (!settings.enabled) return
 
   const calendarId = settings.calendarId || 'primary'
-  const gcalBody = toGcalEvent(event)
+  const color = await getCategoryColor(event.categoryId)
+  const colorId = hexToColorId(color)
+  const gcalBody = toGcalEvent(event, colorId)
   const existingId = await getGcalEventId(event.id)
 
   if (existingId) {
-    // 업데이트
     await apiCall('PUT', `${CALENDAR_API}/calendars/${calendarId}/events/${existingId}`, gcalBody)
   } else {
-    // 생성
     const result = await apiCall('POST', `${CALENDAR_API}/calendars/${calendarId}/events`, gcalBody)
     if (result?.id) {
       await saveGcalEventId(event.id, result.id)
     }
   }
+}
+
+export async function syncTaskToGcal(task: Task) {
+  const settings = await getCalendarSettings()
+  if (!settings.enabled) return
+
+  const calendarId = settings.calendarId || 'primary'
+  const color = await getCategoryColor(task.categoryId)
+  const colorId = hexToColorId(color)
+  const gcalBody = taskToGcalEvent(task, colorId)
+  if (!gcalBody) return // dueDate 없으면 스킵
+
+  const taskKey = `task_${task.id}`
+  const existingId = await getGcalEventId(taskKey)
+
+  if (existingId) {
+    await apiCall('PUT', `${CALENDAR_API}/calendars/${calendarId}/events/${existingId}`, gcalBody)
+  } else {
+    const result = await apiCall('POST', `${CALENDAR_API}/calendars/${calendarId}/events`, gcalBody)
+    if (result?.id) {
+      await saveGcalEventId(taskKey, result.id)
+    }
+  }
+}
+
+export async function deleteTaskFromGcal(taskId: string) {
+  const settings = await getCalendarSettings()
+  if (!settings.enabled) return
+
+  const calendarId = settings.calendarId || 'primary'
+  const taskKey = `task_${taskId}`
+  const gcalEventId = await getGcalEventId(taskKey)
+  if (!gcalEventId) return
+
+  try {
+    await apiCall('DELETE', `${CALENDAR_API}/calendars/${calendarId}/events/${gcalEventId}`)
+  } catch {
+    // 이미 삭제된 경우 무시
+  }
+  await removeGcalEventId(taskKey)
 }
 
 export async function deleteEventFromGcal(eventId: string) {
@@ -201,7 +337,7 @@ export async function deleteEventFromGcal(eventId: string) {
   await removeGcalEventId(eventId)
 }
 
-export async function syncAllEventsToGcal(events: CalendarEvent[]) {
+export async function syncAllToGcal(events: CalendarEvent[], tasks: Task[]) {
   const settings = await getCalendarSettings()
   if (!settings.enabled) return
 
@@ -212,6 +348,14 @@ export async function syncAllEventsToGcal(events: CalendarEvent[]) {
       successCount++
     } catch (error) {
       console.error(`이벤트 동기화 실패 (${event.title}):`, error)
+    }
+  }
+  for (const task of tasks) {
+    try {
+      await syncTaskToGcal(task)
+      successCount++
+    } catch (error) {
+      console.error(`태스크 동기화 실패 (${task.title}):`, error)
     }
   }
   return successCount
