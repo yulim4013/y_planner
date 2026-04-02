@@ -12,8 +12,10 @@ const CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
 let cachedToken: string | null = null
 let tokenExpiry = 0
 
-export async function getCalendarAccessToken(): Promise<string | null> {
+// silent=true: 캐시된 토큰만 사용 (팝업 안 뜸), false: 팝업으로 새 토큰 요청
+export async function getCalendarAccessToken(silent = false): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken
+  if (silent) return null // 캐시 만료 시 자동 동기화에서는 팝업 안 띄움
   if (!auth) return null
 
   const provider = new GoogleAuthProvider()
@@ -238,8 +240,8 @@ function taskToGcalEvent(task: Task, colorId?: string) {
 // --- API Calls ---
 
 async function apiCall(method: string, url: string, body?: unknown) {
-  const token = await getCalendarAccessToken()
-  if (!token) throw new Error('Google Calendar 인증 필요')
+  const token = await getCalendarAccessToken(true) // silent - 팝업 안 띄움
+  if (!token) return null // 토큰 없으면 조용히 스킵
 
   const res = await fetch(url, {
     method,

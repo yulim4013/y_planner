@@ -381,13 +381,19 @@ const COLOR_MAP: Record<string, string> = {
 }
 
 async function getGcalClient() {
-  if (!GCAL_CLIENT_EMAIL || !GCAL_PRIVATE_KEY) return null
-  const authClient = new google.auth.JWT({
-    email: GCAL_CLIENT_EMAIL,
-    key: GCAL_PRIVATE_KEY,
+  // Firebase 기본 서비스 계정 (ADC) 사용
+  const authClient = new google.auth.GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/calendar.events'],
   })
   return google.calendar({ version: 'v3', auth: authClient })
+}
+
+async function getCategoryByName(uid: string, name: string): Promise<{ id: string; color: string } | null> {
+  const snap = await db.collection('users').doc(uid).collection('categories')
+    .where('name', '==', name).limit(1).get()
+  if (snap.empty) return null
+  const doc = snap.docs[0]
+  return { id: doc.id, color: doc.data().color }
 }
 
 async function getCategoryColor(uid: string, categoryId: string | null): Promise<string | undefined> {
@@ -410,41 +416,76 @@ export const addItem = functions
 
     const {
       type, title, date, startTime, endTime,
-      isAllDay, categoryId, description, priority,
+      isAllDay, categoryId, category, description, priority,
     } = req.body as {
-      type: 'event' | 'task'
+      type: string
       title: string
       date: string          // YYYY-MM-DD
       startTime?: string    // HH:mm
       endTime?: string      // HH:mm
       isAllDay?: boolean
-      categoryId?: string
+      categoryId?: string   // 카테고리 ID (직접 지정)
+      category?: string     // 카테고리 이름 (단축어용)
       description?: string
       priority?: 'high' | 'medium' | 'low'
     }
 
-    if (!type || !title || !date) {
-      res.status(400).json({ error: 'type, title, date 필수' })
+    // 한글 타입 지원
+    const typeMap: Record<string, string> = { '일정': 'event', '할일': 'task', 'event': 'event', 'task': 'task' }
+    const normalizedType = typeMap[type] as 'event' | 'task' | undefined
+
+    if (!normalizedType || !title || !date) {
+      res.status(400).json({ error: 'type(일정/할일), title, date 필수' })
       return
     }
 
+    console.log('[addItem] received:', JSON.stringify({ type, title, date, startTime, endTime, category }))
+
+    // 카테고리 이름 → ID 변환
+    let resolvedCategoryId = categoryId || null
+    let resolvedColor: string | undefined
+    if (!resolvedCategoryId && category) {
+      const cat = await getCategoryByName(USER_UID, category)
+      if (cat) {
+        resolvedCategoryId = cat.id
+        resolvedColor = cat.color
+      }
+    }
+
     const now = admin.firestore.Timestamp.now()
-    const dateObj = new Date(date + 'T00:00:00+09:00')
+    // 다양한 날짜 형식 지원 (YYYY-MM-DD, YYYY/MM/DD, ISO 등)
+    const dateStr = String(date).split('T')[0].replace(/\//g, '-')
+    const dateObj = new Date(dateStr + 'T00:00:00+09:00')
+    if (isNaN(dateObj.getTime())) {
+      res.status(400).json({ error: `잘못된 날짜 형식: ${date}` })
+      return
+    }
     const dateTs = admin.firestore.Timestamp.fromDate(dateObj)
-    const allDay = isAllDay ?? !startTime
+    // 시간 형식 검증 (HH:mm만 허용)
+    const validTime = (t?: string) => {
+      if (!t || !t.trim()) return null
+      const match = t.trim().match(/^(\d{1,2}):(\d{2})$/)
+      if (!match) return null
+      const h = Number(match[1]), m = Number(match[2])
+      return h >= 0 && h <= 23 && m >= 0 && m <= 59
+        ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` : null
+    }
+    const validStartTime = validTime(startTime)
+    const validEndTime = validTime(endTime)
+    const allDay = isAllDay ?? !validStartTime
 
     let docId: string
 
-    if (type === 'event') {
+    if (normalizedType === 'event') {
       const eventData = {
         title,
         description: description || '',
         startDate: dateTs,
         endDate: dateTs,
-        startTime: startTime || null,
-        endTime: endTime || startTime || null,
+        startTime: validStartTime,
+        endTime: validEndTime || validStartTime,
         isAllDay: allDay,
-        categoryId: categoryId || null,
+        categoryId: resolvedCategoryId,
         location: '',
         repeat: 'none',
         repeatEndDate: null,
@@ -462,8 +503,8 @@ export const addItem = functions
         priority: priority || 'medium',
         status: 'todo',
         dueDate: dateTs,
-        dueTime: startTime || null,
-        categoryId: categoryId || null,
+        dueTime: validStartTime,
+        categoryId: resolvedCategoryId,
         reminder: null,
         repeat: 'none',
         repeatEndDate: null,
@@ -481,12 +522,13 @@ export const addItem = functions
     // Google Calendar 동기화
     try {
       const cal = await getGcalClient()
-      if (cal && GCAL_CALENDAR_ID) {
-        const color = await getCategoryColor(USER_UID, categoryId || null)
+      const calendarId = GCAL_CALENDAR_ID || 'primary'
+      if (cal) {
+        const color = resolvedColor || await getCategoryColor(USER_UID, resolvedCategoryId)
         const colorId = color ? COLOR_MAP[color.toUpperCase()] : undefined
 
         const gcalEvent: Record<string, unknown> = {
-          summary: type === 'task' ? `[TODO] ${title}` : title,
+          summary: normalizedType === 'task' ? `[TODO] ${title}` : title,
           description: description || undefined,
           ...(colorId && { colorId }),
         }
@@ -494,25 +536,25 @@ export const addItem = functions
         if (allDay) {
           const endDate = new Date(dateObj)
           endDate.setDate(endDate.getDate() + 1)
-          gcalEvent.start = { date }
+          gcalEvent.start = { date: dateStr }
           gcalEvent.end = { date: endDate.toISOString().split('T')[0] }
         } else {
-          const startDt = new Date(date + 'T' + (startTime || '09:00') + ':00+09:00')
-          const endDt = endTime
-            ? new Date(date + 'T' + endTime + ':00+09:00')
+          const startDt = new Date(dateStr + 'T' + (validStartTime || '09:00') + ':00+09:00')
+          const endDt = validEndTime
+            ? new Date(dateStr + 'T' + validEndTime + ':00+09:00')
             : new Date(startDt.getTime() + 30 * 60000)
           gcalEvent.start = { dateTime: startDt.toISOString(), timeZone: 'Asia/Seoul' }
           gcalEvent.end = { dateTime: endDt.toISOString(), timeZone: 'Asia/Seoul' }
         }
 
         const result = await cal.events.insert({
-          calendarId: GCAL_CALENDAR_ID,
+          calendarId,
           requestBody: gcalEvent as any,
         })
 
         // 매핑 저장
         if (result.data.id) {
-          const mappingKey = type === 'task' ? `task_${docId}` : docId
+          const mappingKey = normalizedType === 'task' ? `task_${docId}` : docId
           await db.collection('users').doc(USER_UID).collection('settings').doc('gcalMapping')
             .set({ [mappingKey]: result.data.id }, { merge: true })
         }
@@ -521,5 +563,5 @@ export const addItem = functions
       console.error('[addItem] GCal sync error:', err)
     }
 
-    res.status(200).json({ ok: true, type, id: docId, title, date })
+    res.status(200).json({ ok: true, type: normalizedType, id: docId, title, date })
   })
