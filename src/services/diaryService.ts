@@ -156,6 +156,22 @@ export async function deleteDiaryPhoto(storagePath: string) {
 }
 
 async function compressImage(file: File, quality: number, maxSize: number): Promise<File> {
+  // browser-image-compression 라이브러리 사용 (HEIC/HEIF 지원)
+  try {
+    const imageCompression = (await import('browser-image-compression')).default
+    const compressed = await imageCompression(file, {
+      maxSizeMB: 1,
+      maxWidthOrHeight: maxSize,
+      useWebWorker: true,
+      fileType: 'image/jpeg',
+      initialQuality: quality,
+    })
+    return new File([compressed], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+  } catch (err) {
+    console.warn('[diary] browser-image-compression failed, fallback to canvas:', err)
+  }
+
+  // Fallback: canvas 기반 압축
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error('Image compression timeout'))

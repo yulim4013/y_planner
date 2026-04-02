@@ -289,6 +289,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
     return {
       onTouchStart: (e: React.TouchEvent) => {
+        // 체크박스 클릭 시 드래그/롱프레스 무시
+        if ((e.target as HTMLElement).closest('.tl-task-check')) return
         if (actionBar) { setActionBar(null); return }
         lpTriggeredRef.current = false
         const el = e.currentTarget as HTMLElement
@@ -324,6 +326,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       },
       onMouseDown: (e: React.MouseEvent) => {
         if (e.button !== 0) return
+        // 체크박스 클릭 시 드래그 무시
+        if ((e.target as HTMLElement).closest('.tl-task-check')) return
         if (actionBar) { setActionBar(null); return }
         e.preventDefault()
         lpTriggeredRef.current = false
@@ -391,8 +395,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       const eventCat = getCat(event.categoryId)
       return { event, eventCat, tasks: [] as Task[] }
     })
-    const allTimedTasks = tasks.filter((t) => t.dueTime || (t.isCompleted && t.completedTime))
-    const untimedTasks = tasks.filter((t) => !t.dueTime && !(t.isCompleted && t.completedTime))
+    const allTimedTasks = tasks.filter((t) => t.dueTime || t.completedTime)
+    const untimedTasks = tasks.filter((t) => !t.dueTime && !t.completedTime)
     return { groups, ungrouped: allTimedTasks, untimedTasks }
   }
 
@@ -411,7 +415,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     })
 
     ungroupedTasks.forEach((t) => {
-      const displayTime = t.isCompleted && t.completedTime ? t.completedTime : t.dueTime!
+      const displayTime = t.dueTime || t.completedTime!
       const start = timeToMinutes(displayTime)
       const group = byStart.get(start) || []
       group.push(t.id)
@@ -913,7 +917,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 {groupTasks.length > 0 && (
                   <div className="tl-event-tasks">
                     {groupTasks.map((task) => {
-                      const taskTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime
+                      const taskTime = task.dueTime || task.completedTime
                       const taskCat = getCat(task.categoryId)
                       const taskMin = taskTime ? timeToMinutes(taskTime) : startMin
                       const taskHandlers = makeItemHandlers('task', task.id, taskMin)
@@ -958,7 +962,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
           {/* 그룹 밖 태스크 */}
           {ungroupedTasks.map((task) => {
-            const displayTime = task.isCompleted && task.completedTime ? task.completedTime : task.dueTime!
+            const displayTime = task.dueTime || task.completedTime!
             const min = timeToMinutes(displayTime)
             const top = (min / 60) * HOUR_HEIGHT
             const cat = getCat(task.categoryId)
