@@ -402,67 +402,101 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 이벤트 + 태스크 + 루틴: 시간 범위가 겹치면 나란히 분할
-  const TASK_ROW_MIN = 20 // 태스크/루틴 박스 높이 (분)
+  // 이벤트 + 태스크 + 루틴: 겹침 분할
+  // 규칙: 일정은 항상 왼쪽 / 태스크는 일정 시작 1시간 내에만 분할
+  const TASK_ROW_MIN = 20
   const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
-    const items: { id: string; start: number; end: number }[] = []
 
+    // 이벤트 시간 범위 수집
+    const evItems: { id: string; start: number; end: number }[] = []
     eventGroups.forEach((g) => {
       const start = timeToMinutes(g.event.startTime!)
       const end = g.event.endTime ? timeToMinutes(g.event.endTime) : start + 60
-      items.push({ id: g.event.id, start, end })
+      evItems.push({ id: g.event.id, start, end })
     })
+
+    // 태스크/루틴을 "이벤트 근접" vs "독립" 분류
+    const nearItems: { id: string; start: number; end: number }[] = []
+    const farItems: { id: string; start: number; end: number }[] = []
+
+    const classifyItem = (id: string, start: number, end: number) => {
+      // 겹치는 이벤트 중 시작 1시간 이내인 것이 있으면 근접
+      const isNear = evItems.some((ev) =>
+        start < ev.end && end > ev.start && start < ev.start + 60
+      )
+      if (isNear) nearItems.push({ id, start, end })
+      else farItems.push({ id, start, end })
+    }
 
     ungroupedTasks.forEach((t) => {
       const displayTime = t.dueTime || t.completedTime!
       const start = timeToMinutes(displayTime)
-      items.push({ id: t.id, start, end: start + TASK_ROW_MIN })
+      classifyItem(t.id, start, start + TASK_ROW_MIN)
     })
 
     completedRoutines.forEach((r) => {
       const d = r.checkedAt!.toDate()
       const start = d.getHours() * 60 + d.getMinutes()
-      items.push({ id: r.id, start, end: start + TASK_ROW_MIN })
+      classifyItem(r.id, start, start + TASK_ROW_MIN)
     })
 
-    // 겹침 그룹 수집 + greedy 컬럼 배정
-    items.sort((a, b) => a.start - b.start || a.end - b.end)
-    // 컬럼별 마지막 끝 시간 추적
-    const columns: number[][] = [] // columns[col] = [itemIdx, ...]
+    // 그룹 A: 이벤트(항상 먼저) + 근접 태스크 → greedy 컬럼 배정
+    const groupA = [...evItems, ...nearItems]
+    // 이벤트 먼저, 같은 시작이면 이벤트 우선 (evItems가 앞에 있으므로 stable sort 보장)
+    groupA.sort((a, b) => {
+      const aIsEv = evItems.some((e) => e.id === a.id) ? 0 : 1
+      const bIsEv = evItems.some((e) => e.id === b.id) ? 0 : 1
+      if (a.start !== b.start) return a.start - b.start
+      return aIsEv - bIsEv // 이벤트 우선
+    })
 
-    for (let i = 0; i < items.length; i++) {
-      // 겹치지 않는 기존 컬럼 찾기
+    const colsA: { id: string; start: number; end: number }[][] = []
+    for (const item of groupA) {
       let placed = -1
-      for (let c = 0; c < columns.length; c++) {
-        const lastIdx = columns[c][columns[c].length - 1]
-        if (items[lastIdx].end <= items[i].start) {
-          placed = c
-          break
-        }
+      for (let c = 0; c < colsA.length; c++) {
+        const last = colsA[c][colsA[c].length - 1]
+        if (last.end <= item.start) { placed = c; break }
       }
-      if (placed === -1) {
-        placed = columns.length
-        columns.push([])
-      }
-      columns[placed].push(i)
+      if (placed === -1) { placed = colsA.length; colsA.push([]) }
+      colsA[placed].push(item)
     }
 
-    // 겹침 그룹별 total 계산 (같은 시간대를 공유하는 최대 컬럼 수)
-    for (let i = 0; i < items.length; i++) {
+    // total 계산: 해당 아이템 시간대에 실제 겹치는 컬럼 수
+    for (const item of groupA) {
       let myCol = 0
-      for (let c = 0; c < columns.length; c++) {
-        if (columns[c].includes(i)) { myCol = c; break }
+      for (let c = 0; c < colsA.length; c++) {
+        if (colsA[c].some((x) => x.id === item.id)) { myCol = c; break }
       }
-      // 이 아이템과 겹치는 컬럼 수 계산
-      let maxCols = 0
-      for (let c = 0; c < columns.length; c++) {
-        const hasOverlap = columns[c].some((idx) =>
-          items[idx].start < items[i].end && items[idx].end > items[i].start
-        )
-        if (hasOverlap) maxCols++
+      let total = 0
+      for (let c = 0; c < colsA.length; c++) {
+        if (colsA[c].some((x) => x.start < item.end && x.end > item.start)) total++
       }
-      cols.set(items[i].id, { col: myCol, total: Math.max(maxCols, 1) })
+      cols.set(item.id, { col: myCol, total: Math.max(total, 1) })
+    }
+
+    // 그룹 B: 독립 태스크/루틴 → 자체 분할만
+    farItems.sort((a, b) => a.start - b.start)
+    const colsB: { id: string; start: number; end: number }[][] = []
+    for (const item of farItems) {
+      let placed = -1
+      for (let c = 0; c < colsB.length; c++) {
+        const last = colsB[c][colsB[c].length - 1]
+        if (last.end <= item.start) { placed = c; break }
+      }
+      if (placed === -1) { placed = colsB.length; colsB.push([]) }
+      colsB[placed].push(item)
+    }
+    for (const item of farItems) {
+      let myCol = 0
+      for (let c = 0; c < colsB.length; c++) {
+        if (colsB[c].some((x) => x.id === item.id)) { myCol = c; break }
+      }
+      let total = 0
+      for (let c = 0; c < colsB.length; c++) {
+        if (colsB[c].some((x) => x.start < item.end && x.end > item.start)) total++
+      }
+      cols.set(item.id, { col: myCol, total: Math.max(total, 1) })
     }
 
     return cols
