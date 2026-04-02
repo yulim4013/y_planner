@@ -540,7 +540,8 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const isTouchDevice = 'ontouchstart' in window
 
   // Click guard: prevent click after long-press / drag / activation
-  const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
+  const handleItemClick = (e: React.MouseEvent, type: 'event' | 'task', item: CalendarEvent | Task) => {
+    e.stopPropagation() // 그리드 클릭 핸들러로 전파 방지
     // 꾹 누르기 직후 600ms 내 클릭은 무시 (꾹 누르기 후 click 이벤트 방지)
     if (lpTriggeredRef.current || (Date.now() - lpTriggeredTimeRef.current < 600)) {
       lpTriggeredRef.current = false
@@ -778,7 +779,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               <div
                 key={event.id}
                 className={`tl-allday-item ${actionBar?.id === event.id || selectedItemId === event.id ? 'tl-selected' : ''}`}
-                onClick={() => handleItemClick('event', event)}
+                onClick={(e) => handleItemClick(e, 'event', event)}
                 onDoubleClick={() => handleItemDoubleClick('event', event)}
                 style={{ borderLeftColor: cat?.color || '#64B5F6', background: cat ? `${cat.color}22` : 'rgba(100,181,246,0.1)' }}
               >
@@ -801,7 +802,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
               <div
                 key={task.id}
                 className={`tl-untimed-task ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
-                onClick={() => handleItemClick('task', task)}
+                onClick={(e) => handleItemClick(e, 'task', task)}
                 onDoubleClick={() => handleItemDoubleClick('task', task)}
               >
                 <button
@@ -918,7 +919,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 }}
 
                 {...handlers}
-                onClick={() => handleItemClick('event', event)}
+                onClick={(e) => handleItemClick(e, 'event', event)}
                 onDoubleClick={() => handleItemDoubleClick('event', event)}
                 onContextMenu={(e) => handleItemContextMenu(e, 'event', event.id)}
               >
@@ -956,7 +957,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                           key={task.id}
                           className={`tl-nested-task ${actionBar?.id === task.id || selectedItemId === task.id ? 'tl-selected' : ''}`}
                           style={taskCat ? { borderLeft: `3px solid ${taskCat.color}` } : undefined}
-                          onClick={(e) => { e.stopPropagation(); handleItemClick('task', task) }}
+                          onClick={(e) => { e.stopPropagation(); handleItemClick(e, 'task', task) }}
                           onDoubleClick={(e) => { e.stopPropagation(); handleItemDoubleClick('task', task) }}
                           onTouchStart={(e) => { e.stopPropagation(); taskHandlers.onTouchStart(e) }}
                           onTouchMove={taskHandlers.onTouchMove}
@@ -1014,7 +1015,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                   ...(isDragging ? { transform: `translateY(${dragDeltaY}px)`, zIndex: 100 } : {}),
                 }}
                 {...handlers}
-                onClick={() => handleItemClick('task', task)}
+                onClick={(e) => handleItemClick(e, 'task', task)}
                 onDoubleClick={() => handleItemDoubleClick('task', task)}
                 onContextMenu={(e) => handleItemContextMenu(e, 'task', task.id)}
               >
