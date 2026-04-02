@@ -7,7 +7,7 @@ import { subscribeEvents } from '../../services/eventService'
 import {
   subscribeRoutinesByDate, addRoutineTemplate, addRoutine,
   toggleRoutineComplete, deleteRoutine, incrementWater, decrementWater,
-  subscribeActiveTemplates, deleteRoutineTemplate, updateRoutineOrder,
+  subscribeActiveTemplates, deleteRoutineTemplate, updateRoutineTemplate, updateRoutineOrder,
 } from '../../services/routineService'
 import {
   requestNotificationPermission,
@@ -117,6 +117,7 @@ export default function DashboardPage() {
   const [editTxn, setEditTxn] = useState<Transaction | null>(null)
   const [showRoutineForm, setShowRoutineForm] = useState(false)
   const [showTemplateList, setShowTemplateList] = useState(false)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [selectedIconId, setSelectedIconId] = useState(ROUTINE_ICONS[0].id)
   const [routineTitle, setRoutineTitle] = useState('')
   const [waterGoal, setWaterGoal] = useState('2000')
@@ -281,46 +282,58 @@ export default function DashboardPage() {
     const targetMl = isWater ? parseInt(waterGoal) || 2000 : undefined
     const timeValue = routineTime || undefined
 
-    // 시간 알림이 설정된 경우 알림 권한 요청
     if (timeValue && getNotificationPermission() !== 'granted') {
       await requestNotificationPermission()
     }
 
-    // 낙관적 UI 업데이트 - 즉시 화면에 반영
-    const tempId = `temp-${Date.now()}`
-    const newRoutine: Routine = {
-      id: tempId,
-      templateId: '',
-      iconId: selectedIconId,
-      title: routineTitle.trim(),
-      isCompleted: false,
-      date: routineDateStr,
-      order: templates.length,
-      checkedAt: null,
-      ...(targetMl ? { targetMl, currentMl: 0 } : {}),
-      ...(timeValue ? { time: timeValue } : {}),
-    } as Routine
-    setRoutines((prev) => [...prev, newRoutine])
-
-    const tmplDoc = await addRoutineTemplate({
-      iconId: selectedIconId,
-      title: routineTitle.trim(),
-      order: templates.length,
-      startDate,
-      endDate,
-      targetMl,
-      time: timeValue,
-    })
-    if (tmplDoc && startDate <= routineDateStr && endDate >= routineDateStr) {
-      await addRoutine({
-        templateId: tmplDoc.id,
+    if (editingTemplateId) {
+      // 수정 모드
+      await updateRoutineTemplate(editingTemplateId, {
         iconId: selectedIconId,
         title: routineTitle.trim(),
+        startDate,
+        endDate,
+        targetMl: targetMl || null,
+        time: timeValue || null,
+      })
+      setEditingTemplateId(null)
+    } else {
+      // 추가 모드
+      const tempId = `temp-${Date.now()}`
+      const newRoutine: Routine = {
+        id: tempId,
+        templateId: '',
+        iconId: selectedIconId,
+        title: routineTitle.trim(),
+        isCompleted: false,
         date: routineDateStr,
         order: templates.length,
+        checkedAt: null,
+        ...(targetMl ? { targetMl, currentMl: 0 } : {}),
+        ...(timeValue ? { time: timeValue } : {}),
+      } as Routine
+      setRoutines((prev) => [...prev, newRoutine])
+
+      const tmplDoc = await addRoutineTemplate({
+        iconId: selectedIconId,
+        title: routineTitle.trim(),
+        order: templates.length,
+        startDate,
+        endDate,
         targetMl,
         time: timeValue,
       })
+      if (tmplDoc && startDate <= routineDateStr && endDate >= routineDateStr) {
+        await addRoutine({
+          templateId: tmplDoc.id,
+          iconId: selectedIconId,
+          title: routineTitle.trim(),
+          date: routineDateStr,
+          order: templates.length,
+          targetMl,
+          time: timeValue,
+        })
+      }
     }
     setRoutineTitle('')
     setSelectedIconId(ROUTINE_ICONS[0].id)
@@ -332,7 +345,21 @@ export default function DashboardPage() {
   }
 
   const handleRoutineFormOpen = () => {
+    setEditingTemplateId(null)
     setShowRoutineForm(true)
+    setTimeout(() => titleInputRef.current?.focus(), 100)
+  }
+
+  const handleEditTemplate = (tmpl: RoutineTemplate) => {
+    setEditingTemplateId(tmpl.id)
+    setSelectedIconId(tmpl.iconId)
+    setRoutineTitle(tmpl.title)
+    setStartDate(tmpl.startDate)
+    setEndDate(tmpl.endDate)
+    setRoutineTime(tmpl.time || '')
+    setWaterGoal(tmpl.targetMl ? String(tmpl.targetMl) : '2000')
+    setShowRoutineForm(true)
+    setShowTemplateList(false)
     setTimeout(() => titleInputRef.current?.focus(), 100)
   }
 
@@ -694,8 +721,8 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="routine-form-actions">
-                <button className="routine-add-confirm" onClick={handleAddRoutine}>추가</button>
-                <button className="routine-add-cancel" onClick={() => setShowRoutineForm(false)}>취소</button>
+                <button className="routine-add-confirm" onClick={handleAddRoutine}>{editingTemplateId ? '수정' : '추가'}</button>
+                <button className="routine-add-cancel" onClick={() => { setShowRoutineForm(false); setEditingTemplateId(null) }}>취소</button>
               </div>
             </div>
           ) : (
@@ -716,7 +743,7 @@ export default function DashboardPage() {
                 <p className="dash-empty">등록된 루틴이 없습니다</p>
               ) : (
                 templates.map((tmpl) => (
-                  <div key={tmpl.id} className="routine-template-item">
+                  <div key={tmpl.id} className="routine-template-item" onClick={() => handleEditTemplate(tmpl)}>
                     <span
                       className="routine-icon"
                       dangerouslySetInnerHTML={{ __html: getIconSvg(tmpl.iconId) }}
@@ -730,7 +757,7 @@ export default function DashboardPage() {
                     </div>
                     <button
                       className="routine-delete"
-                      onClick={() => deleteRoutineTemplate(tmpl.id)}
+                      onClick={(e) => { e.stopPropagation(); deleteRoutineTemplate(tmpl.id) }}
                     >×</button>
                   </div>
                 ))

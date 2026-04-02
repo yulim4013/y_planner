@@ -53,6 +53,13 @@ export async function addRoutineTemplate(data: {
   })
 }
 
+// 루틴 템플릿 수정
+export async function updateRoutineTemplate(templateId: string, data: Partial<Omit<RoutineTemplate, 'id' | 'createdAt'>>) {
+  const ref = getTemplatesRef()
+  if (!ref) return
+  await updateDoc(doc(ref, templateId), { ...data, updatedAt: Timestamp.now() })
+}
+
 // 루틴 템플릿 삭제
 export async function deleteRoutineTemplate(templateId: string) {
   const ref = getTemplatesRef()
