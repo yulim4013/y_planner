@@ -47,6 +47,7 @@ export default function DiaryPage() {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null)
+  const [viewMode, setViewMode] = useState<'calendar' | 'feed'>('calendar')
 
   // 인라인 작성 상태
   const [inlineTitle, setInlineTitle] = useState('')
@@ -86,6 +87,12 @@ export default function DiaryPage() {
   const selectedEntry = selectedDate
     ? entries.find((e) => isSameDayFn(e.date.toDate(), selectedDate))
     : null
+
+  // 피드용: 최신순 정렬
+  const feedEntries = useMemo(() =>
+    [...entries].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime()),
+    [entries]
+  )
 
   const handlePrevMonth = useCallback(() => setCurrentMonth((d) => subMonths(d, 1)), [])
   const handleNextMonth = useCallback(() => setCurrentMonth((d) => addMonths(d, 1)), [])
@@ -202,7 +209,25 @@ export default function DiaryPage() {
   return (
     <div className="page">
       <Header title="DIARY" right={
-        <button className="header-add-btn" onClick={handleWrite}>+</button>
+        <div className="diary-header-right">
+          <button
+            className={`diary-view-toggle ${viewMode === 'calendar' ? 'active' : ''}`}
+            onClick={() => setViewMode('calendar')}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
+          <button
+            className={`diary-view-toggle ${viewMode === 'feed' ? 'active' : ''}`}
+            onClick={() => setViewMode('feed')}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+          </button>
+          <button className="header-add-btn" onClick={handleWrite}>+</button>
+        </div>
       } />
 
       {/* 월 네비게이션 */}
@@ -222,6 +247,8 @@ export default function DiaryPage() {
         </button>
       </div>
 
+      {viewMode === 'calendar' ? (
+      <>
       {/* 월별 그리드 캘린더 */}
       <div className="diary-month-grid">
         <div className="diary-weekday-header">
@@ -414,6 +441,44 @@ export default function DiaryPage() {
             </div>
           </div>
         </GlassCard>
+      )}
+
+      </>
+      ) : (
+      /* 피드 뷰 */
+      <div className="diary-feed-grid">
+        {feedEntries.length === 0 ? (
+          <p className="diary-feed-empty">작성된 일기가 없습니다</p>
+        ) : (
+          feedEntries.map((entry) => {
+            const d = entry.date.toDate()
+            const dateLabel = `${d.getMonth() + 1}/${d.getDate()} ${WEEKDAYS[d.getDay()]}`
+            const hasPhoto = entry.photos && entry.photos.length > 0
+            return (
+              <div
+                key={entry.id}
+                className="diary-feed-card"
+                onClick={() => {
+                  setViewMode('calendar')
+                  setCurrentMonth(d)
+                  setSelectedDate(d)
+                }}
+              >
+                <div className="diary-feed-thumb">
+                  {hasPhoto ? (
+                    <img src={entry.photos[0].url} alt="" />
+                  ) : entry.mood ? (
+                    <span className="diary-feed-mood">{MOOD_EMOJI[entry.mood]}</span>
+                  ) : (
+                    <span className="diary-feed-text">{entry.content?.slice(0, 30) || entry.title || '-'}</span>
+                  )}
+                </div>
+                <div className="diary-feed-date">{dateLabel}</div>
+              </div>
+            )
+          })
+        )}
+      </div>
       )}
 
       <DiaryForm
