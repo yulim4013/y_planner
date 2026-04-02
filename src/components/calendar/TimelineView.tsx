@@ -348,7 +348,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
           document.removeEventListener('mousemove', onMove)
           document.removeEventListener('mouseup', onUp)
           preMouseRef.current = null
-          if (!lpTriggeredRef.current) el.click()
+          if (!lpTriggeredRef.current) {
+            // 웹: 클릭 → 선택 + 활성화
+            if (!isTouchDevice) {
+              setActiveEventId(id)
+              if (onSelectItem) onSelectItem(type as 'event' | 'task', id)
+            } else {
+              el.click()
+            }
+          }
         }
 
         document.addEventListener('mousemove', onMove)
@@ -395,16 +403,15 @@ export default function TimelineView({ events, tasks, routines = [], categories 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
   // 이벤트 + 태스크 + 루틴: 시간 범위가 겹치면 나란히 분할
-  const TASK_ROW_MIN = 24 // 태스크/루틴 박스가 차지하는 분(24px / 60px*60 ≈ 24분)
+  const TASK_ROW_MIN = 20 // 태스크/루틴 박스 높이 (분)
   const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
-    // 각 아이템의 시간 범위 수집
     const items: { id: string; start: number; end: number }[] = []
 
     eventGroups.forEach((g) => {
       const start = timeToMinutes(g.event.startTime!)
       const end = g.event.endTime ? timeToMinutes(g.event.endTime) : start + 60
-      items.push({ id: g.event.id, start, end: Math.max(end, start + TASK_ROW_MIN) })
+      items.push({ id: g.event.id, start, end })
     })
 
     ungroupedTasks.forEach((t) => {
@@ -419,26 +426,43 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       items.push({ id: r.id, start, end: start + TASK_ROW_MIN })
     })
 
-    // 겹침 그룹 계산 (sweep line)
+    // 겹침 그룹 수집 + greedy 컬럼 배정
     items.sort((a, b) => a.start - b.start || a.end - b.end)
-    const assigned = new Set<string>()
+    // 컬럼별 마지막 끝 시간 추적
+    const columns: number[][] = [] // columns[col] = [itemIdx, ...]
 
     for (let i = 0; i < items.length; i++) {
-      if (assigned.has(items[i].id)) continue
-      // 이 아이템과 겹치는 모든 아이템 수집
-      const group = [items[i]]
-      let maxEnd = items[i].end
-      for (let j = i + 1; j < items.length; j++) {
-        if (assigned.has(items[j].id)) continue
-        if (items[j].start < maxEnd) {
-          group.push(items[j])
-          maxEnd = Math.max(maxEnd, items[j].end)
+      // 겹치지 않는 기존 컬럼 찾기
+      let placed = -1
+      for (let c = 0; c < columns.length; c++) {
+        const lastIdx = columns[c][columns[c].length - 1]
+        if (items[lastIdx].end <= items[i].start) {
+          placed = c
+          break
         }
       }
-      group.forEach((item, col) => {
-        cols.set(item.id, { col, total: group.length })
-        assigned.add(item.id)
-      })
+      if (placed === -1) {
+        placed = columns.length
+        columns.push([])
+      }
+      columns[placed].push(i)
+    }
+
+    // 겹침 그룹별 total 계산 (같은 시간대를 공유하는 최대 컬럼 수)
+    for (let i = 0; i < items.length; i++) {
+      let myCol = 0
+      for (let c = 0; c < columns.length; c++) {
+        if (columns[c].includes(i)) { myCol = c; break }
+      }
+      // 이 아이템과 겹치는 컬럼 수 계산
+      let maxCols = 0
+      for (let c = 0; c < columns.length; c++) {
+        const hasOverlap = columns[c].some((idx) =>
+          items[idx].start < items[i].end && items[idx].end > items[i].start
+        )
+        if (hasOverlap) maxCols++
+      }
+      cols.set(items[i].id, { col: myCol, total: Math.max(maxCols, 1) })
     }
 
     return cols
