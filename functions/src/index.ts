@@ -450,7 +450,7 @@ export const addItem = functions
     }
 
     // 한글 타입 지원
-    const typeMap: Record<string, string> = { '일정': 'event', '할일': 'task', 'event': 'event', 'task': 'task' }
+    const typeMap: Record<string, string> = { '일정': 'event', '할일': 'task', '할 일': 'task', 'event': 'event', 'task': 'task' }
     const normalizedType = typeMap[type] as 'event' | 'task' | undefined
 
     if (!normalizedType || !title || !date) {
@@ -464,7 +464,10 @@ export const addItem = functions
     let resolvedCategoryId = categoryId || null
     let resolvedColor: string | undefined
     if (!resolvedCategoryId && category) {
-      const cat = await getCategoryByName(USER_UID, category)
+      // 이모지 제거 후 이름만 추출 (단축어에서 "👯 약속" 형태로 올 수 있음)
+      const cleanName = category.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]/gu, '').trim()
+      const cat = await getCategoryByName(USER_UID, cleanName)
+        || await getCategoryByName(USER_UID, category)
       if (cat) {
         resolvedCategoryId = cat.id
         resolvedColor = cat.color
@@ -605,4 +608,48 @@ export const addItem = functions
     }
 
     res.status(200).json({ ok: true, type: normalizedType, id: docId, title, date })
+  })
+
+/**
+ * 항목 삭제 시 Google Calendar에서도 삭제
+ * POST body: { type: 'event' | 'task', id: string }
+ */
+export const deleteItem = functions
+  .region('asia-northeast3')
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+    if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return }
+    if (!auth(req, res)) return
+
+    const { type, id } = req.body as { type?: string; id?: string }
+    if (!type || !id) {
+      res.status(400).json({ error: 'type, id 필수' })
+      return
+    }
+
+    const mappingKey = type === 'task' ? `task_${id}` : id
+
+    try {
+      const mappingRef = db.collection('users').doc(USER_UID).collection('settings').doc('gcalMapping')
+      const snap = await mappingRef.get()
+      const gcalEventId = snap.exists ? snap.data()?.[mappingKey] : null
+
+      if (gcalEventId) {
+        const cal = await getGcalClient()
+        const calendarId = GCAL_CALENDAR_ID || 'primary'
+        try {
+          await cal.events.delete({ calendarId, eventId: gcalEventId })
+        } catch {
+          // 이미 삭제된 경우 무시
+        }
+        // 매핑 제거
+        const { FieldValue } = admin.firestore
+        await mappingRef.update({ [mappingKey]: FieldValue.delete() })
+      }
+    } catch (err) {
+      console.error('[deleteItem] GCal delete error:', err)
+    }
+
+    res.status(200).json({ ok: true, type, id })
   })

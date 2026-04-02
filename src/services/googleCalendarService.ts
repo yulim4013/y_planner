@@ -306,37 +306,30 @@ export async function syncTaskToGcal(task: Task) {
   }
 }
 
-export async function deleteTaskFromGcal(taskId: string) {
+const DELETE_ITEM_URL = 'https://asia-northeast3-y-diary.cloudfunctions.net/deleteItem'
+const SHORTCUT_SECRET = 'kXllqPQXmKTV6upnTuA_dPZujYKuwsQ2MAm97dlxSkA'
+
+async function deleteViaCloudFunction(type: 'event' | 'task', id: string) {
   const settings = await getCalendarSettings()
   if (!settings.enabled) return
 
-  const calendarId = settings.calendarId || 'primary'
-  const taskKey = `task_${taskId}`
-  const gcalEventId = await getGcalEventId(taskKey)
-  if (!gcalEventId) return
-
   try {
-    await apiCall('DELETE', `${CALENDAR_API}/calendars/${calendarId}/events/${gcalEventId}`)
-  } catch {
-    // 이미 삭제된 경우 무시
+    await fetch(DELETE_ITEM_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-secret': SHORTCUT_SECRET },
+      body: JSON.stringify({ type, id }),
+    })
+  } catch (e) {
+    console.error('GCal 삭제 실패:', e)
   }
-  await removeGcalEventId(taskKey)
+}
+
+export async function deleteTaskFromGcal(taskId: string) {
+  await deleteViaCloudFunction('task', taskId)
 }
 
 export async function deleteEventFromGcal(eventId: string) {
-  const settings = await getCalendarSettings()
-  if (!settings.enabled) return
-
-  const calendarId = settings.calendarId || 'primary'
-  const gcalEventId = await getGcalEventId(eventId)
-  if (!gcalEventId) return
-
-  try {
-    await apiCall('DELETE', `${CALENDAR_API}/calendars/${calendarId}/events/${gcalEventId}`)
-  } catch {
-    // 이미 삭제된 경우 무시
-  }
-  await removeGcalEventId(eventId)
+  await deleteViaCloudFunction('event', eventId)
 }
 
 export async function syncAllToGcal(events: CalendarEvent[], tasks: Task[]) {
