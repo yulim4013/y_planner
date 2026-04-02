@@ -28,7 +28,10 @@ import './CalendarPage.css'
 type ViewType = 'month' | 'day' | 'week'
 
 export default function CalendarPage() {
-  const [view, setView] = useState<ViewType>('day')
+  const [view, setView] = useState<ViewType>(() => {
+    const saved = localStorage.getItem('calendarView')
+    return saved && ['month', 'day', 'week'].includes(saved) ? saved as ViewType : 'day'
+  })
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -439,14 +442,14 @@ export default function CalendarPage() {
           <button
             key={v}
             className={`view-toggle-btn ${view === v ? 'active' : ''}`}
-            onClick={() => setView(v)}
+            onClick={() => { setView(v); localStorage.setItem('calendarView', v) }}
           >
             {v === 'month' ? '월' : '일'}
           </button>
         ))}
         <button
           className={`view-toggle-btn view-toggle-week ${view === 'week' ? 'active' : ''}`}
-          onClick={() => setView('week')}
+          onClick={() => { setView('week'); localStorage.setItem('calendarView', 'week') }}
         >
           주
         </button>

@@ -78,7 +78,7 @@ function formatTimeKorean(time: string): string {
   return `오후 ${h - 12}시${suffix}`
 }
 
-export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, selectedItemId, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
+export default function TimelineView({ events, tasks, routines = [], categories = [], sleepInfo, selectedItemId, onSelectItem, onEditEvent, onEditTask, onAddEventAtTime, onSwipePrev, onSwipeNext }: TimelineViewProps) {
   const gridRef = useRef<HTMLDivElement>(null)
   const getCat = (id?: string | null) => id ? categories.find((c) => c.id === id) : null
 
@@ -336,20 +336,12 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
         const onMove = (ev: MouseEvent) => {
           if (Math.abs(ev.clientY - startPos.y) > 5) {
-            // 활성화된 이벤트만 드래그 가능
-            if (type === 'event' && activeEventId === id) {
-              lpTriggeredRef.current = true
-              document.removeEventListener('mousemove', onMove)
-              document.removeEventListener('mouseup', onUp)
-              preMouseRef.current = null
-              startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
-            } else if (type === 'task' || type === 'routine' || type === 'sleep') {
-              lpTriggeredRef.current = true
-              document.removeEventListener('mousemove', onMove)
-              document.removeEventListener('mouseup', onUp)
-              preMouseRef.current = null
-              startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
-            }
+            // 웹: 모든 아이템 즉시 드래그 가능
+            lpTriggeredRef.current = true
+            document.removeEventListener('mousemove', onMove)
+            document.removeEventListener('mouseup', onUp)
+            preMouseRef.current = null
+            startDragMode(type, id, 'move', el, originalStartMin, endMin, startPos.y, 'mouse')
           }
         }
         const onUp = () => {
@@ -402,38 +394,50 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
   const { groups: eventGroups, ungrouped: ungroupedTasks, untimedTasks } = buildEventGroups()
 
-  // 이벤트 + 태스크: 동일 시작시간이면 카테고리 무관하게 나란히 분할
+  // 이벤트 + 태스크 + 루틴: 시간 범위가 겹치면 나란히 분할
+  const TASK_ROW_MIN = 24 // 태스크/루틴 박스가 차지하는 분(24px / 60px*60 ≈ 24분)
   const itemColumns = (() => {
     const cols = new Map<string, { col: number; total: number }>()
-    const byStart = new Map<number, string[]>()
+    // 각 아이템의 시간 범위 수집
+    const items: { id: string; start: number; end: number }[] = []
 
     eventGroups.forEach((g) => {
       const start = timeToMinutes(g.event.startTime!)
-      const group = byStart.get(start) || []
-      group.push(g.event.id)
-      byStart.set(start, group)
+      const end = g.event.endTime ? timeToMinutes(g.event.endTime) : start + 60
+      items.push({ id: g.event.id, start, end: Math.max(end, start + TASK_ROW_MIN) })
     })
 
     ungroupedTasks.forEach((t) => {
       const displayTime = t.dueTime || t.completedTime!
       const start = timeToMinutes(displayTime)
-      const group = byStart.get(start) || []
-      group.push(t.id)
-      byStart.set(start, group)
+      items.push({ id: t.id, start, end: start + TASK_ROW_MIN })
     })
 
-    // 완료된 루틴도 컬럼 분할에 포함
     completedRoutines.forEach((r) => {
       const d = r.checkedAt!.toDate()
-      const start = Math.floor((d.getHours() * 60 + d.getMinutes()) / 15) * 15
-      const group = byStart.get(start) || []
-      group.push(r.id)
-      byStart.set(start, group)
+      const start = d.getHours() * 60 + d.getMinutes()
+      items.push({ id: r.id, start, end: start + TASK_ROW_MIN })
     })
 
-    for (const [, group] of byStart) {
-      group.forEach((id, i) => {
-        cols.set(id, { col: i, total: group.length })
+    // 겹침 그룹 계산 (sweep line)
+    items.sort((a, b) => a.start - b.start || a.end - b.end)
+    const assigned = new Set<string>()
+
+    for (let i = 0; i < items.length; i++) {
+      if (assigned.has(items[i].id)) continue
+      // 이 아이템과 겹치는 모든 아이템 수집
+      const group = [items[i]]
+      let maxEnd = items[i].end
+      for (let j = i + 1; j < items.length; j++) {
+        if (assigned.has(items[j].id)) continue
+        if (items[j].start < maxEnd) {
+          group.push(items[j])
+          maxEnd = Math.max(maxEnd, items[j].end)
+        }
+      }
+      group.forEach((item, col) => {
+        cols.set(item.id, { col, total: group.length })
+        assigned.add(item.id)
       })
     }
 
@@ -532,6 +536,9 @@ export default function TimelineView({ events, tasks, routines = [], categories 
     setActionBar(null)
   }
 
+  // 터치/모바일 여부 감지
+  const isTouchDevice = 'ontouchstart' in window
+
   // Click guard: prevent click after long-press / drag / activation
   const handleItemClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
     // 꾹 누르기 직후 600ms 내 클릭은 무시 (꾹 누르기 후 click 이벤트 방지)
@@ -540,20 +547,41 @@ export default function TimelineView({ events, tasks, routines = [], categories 
       return
     }
     if (actionBar || draggedId) return
-    if (activeEventId) setActiveEventId(null)
-    // 싱글 클릭 → 수정 페이지 바로 열기
-    if (type === 'event') onEditEvent(item as CalendarEvent)
-    else onEditTask(item as Task)
+
+    if (isTouchDevice) {
+      // 모바일: 싱글 탭 → 수정 페이지 바로 열기
+      if (activeEventId) setActiveEventId(null)
+      if (type === 'event') onEditEvent(item as CalendarEvent)
+      else onEditTask(item as Task)
+    } else {
+      // 웹: 싱글 클릭 → 선택 + 활성화 (드래그/리사이즈 가능)
+      setActiveEventId(item.id)
+      if (onSelectItem) onSelectItem(type, item.id)
+    }
   }
 
   const handleItemDoubleClick = (type: 'event' | 'task', item: CalendarEvent | Task) => {
-    // 이벤트 더블 클릭 시 리사이즈 활성화도 함께 토글
+    if (isTouchDevice) return // 모바일에서는 더블탭 사용 안 함
+    // 웹: 더블 클릭 → 수정 팝업
     if (type === 'event') {
-      setActiveEventId(activeEventId === item.id ? null : item.id)
       onEditEvent(item as CalendarEvent)
     } else {
       onEditTask(item as Task)
     }
+  }
+
+  // 웹: 오른쪽 클릭 → 삭제 액션바
+  const handleItemContextMenu = (e: React.MouseEvent, type: 'event' | 'task', id: string) => {
+    if (isTouchDevice) return
+    e.preventDefault()
+    e.stopPropagation()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const bw = 120
+    let bt = rect.bottom + 8
+    let bl = e.clientX
+    if (bt + 44 > window.innerHeight - 80) bt = rect.top - 52
+    bl = Math.max(bw / 2 + 8, Math.min(bl, window.innerWidth - bw / 2 - 8))
+    setActionBar({ type, id, barTop: bt, barLeft: bl })
   }
 
   // 그리드 빈 칸: 꾹 누르기(touch) / 더블클릭(mouse)으로 일정 추가
@@ -892,6 +920,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 {...handlers}
                 onClick={() => handleItemClick('event', event)}
                 onDoubleClick={() => handleItemDoubleClick('event', event)}
+                onContextMenu={(e) => handleItemContextMenu(e, 'event', event.id)}
               >
                 {/* Top resize handle - only when active */}
                 {isActive && <div className="tl-resize-handle tl-resize-top" onClick={(e) => e.stopPropagation()} {...makeResizeHandlers(event.id, 'resize-top', startMin, endMin)} />}
@@ -987,6 +1016,7 @@ export default function TimelineView({ events, tasks, routines = [], categories 
                 {...handlers}
                 onClick={() => handleItemClick('task', task)}
                 onDoubleClick={() => handleItemDoubleClick('task', task)}
+                onContextMenu={(e) => handleItemContextMenu(e, 'task', task.id)}
               >
                 <button
                   className={`tl-task-check ${task.isCompleted ? 'done' : ''} ${isCompact ? 'tl-check-compact' : ''}`}

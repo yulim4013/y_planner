@@ -183,16 +183,30 @@ export default function DashboardPage() {
   // Today's tasks
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
-  const todayTasks = useMemo(() => tasks.filter((t) => {
-    if (!t.dueDate) return !t.isCompleted
-    const d = t.dueDate.toDate()
-    if (d >= todayStart && d <= todayEnd) return true
-    // 반복 태스크 (완료되지 않은 것만)
-    if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
-      return matchesRepeatDate(d, today, t.repeat, t.repeatEndDate)
-    }
-    return false
-  }), [tasks])
+  const todayTasks = useMemo(() => {
+    const filtered = tasks.filter((t) => {
+      if (!t.dueDate) return !t.isCompleted
+      const d = t.dueDate.toDate()
+      if (d >= todayStart && d <= todayEnd) return true
+      // 반복 태스크 (완료되지 않은 것만)
+      if (t.repeat && t.repeat !== 'none' && !t.isCompleted) {
+        return matchesRepeatDate(d, today, t.repeat, t.repeatEndDate)
+      }
+      return false
+    })
+    // 시간순 정렬: 미완료 먼저, 시간 있는 것 → 시간순, 시간 없는 것 → 마지막
+    return filtered.sort((a, b) => {
+      // 미완료 우선
+      if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1
+      // 시간 있는 것 우선
+      const aTime = a.dueTime || ''
+      const bTime = b.dueTime || ''
+      if (aTime && !bTime) return -1
+      if (!aTime && bTime) return 1
+      if (aTime && bTime) return aTime.localeCompare(bTime)
+      return 0
+    })
+  }, [tasks])
   const taskCompletedCount = todayTasks.filter((t) => t.isCompleted).length
 
   // Today's events
