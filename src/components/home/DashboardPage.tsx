@@ -293,8 +293,8 @@ export default function DashboardPage() {
         title: routineTitle.trim(),
         startDate,
         endDate,
-        targetMl: targetMl || null,
-        time: timeValue || null,
+        targetMl: targetMl || undefined,
+        time: timeValue || undefined,
       })
       setEditingTemplateId(null)
     } else {

@@ -9,7 +9,7 @@ import {
   onSnapshot,
   Timestamp,
 } from 'firebase/firestore'
-import { ref, uploadBytesResumable, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { ref, deleteObject } from 'firebase/storage'
 import { db, storage } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
 import type { DiaryEntry, DiaryPhoto, Mood } from '../types'

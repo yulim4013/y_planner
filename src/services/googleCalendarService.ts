@@ -1,5 +1,5 @@
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
-import { doc, getDoc, setDoc, deleteField, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
 import type { CalendarEvent, Task, Category } from '../types'
@@ -75,12 +75,6 @@ async function saveGcalEventId(eventId: string, gcalEventId: string) {
   const ref = getMappingRef()
   if (!ref) return
   await setDoc(ref, { [eventId]: gcalEventId }, { merge: true })
-}
-
-async function removeGcalEventId(eventId: string) {
-  const ref = getMappingRef()
-  if (!ref) return
-  await setDoc(ref, { [eventId]: deleteField() }, { merge: true })
 }
 
 // --- Color Mapping ---
