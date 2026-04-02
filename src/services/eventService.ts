@@ -12,6 +12,7 @@ import {
 import { db } from '../config/firebase'
 import { useAuthStore } from '../store/authStore'
 import type { CalendarEvent } from '../types'
+import { syncEventToGcal, deleteEventFromGcal } from './googleCalendarService'
 
 function getEventsRef() {
   const uid = useAuthStore.getState().user?.uid
@@ -53,7 +54,7 @@ export async function addEvent(data: {
   if (!ref) return null
 
   const now = Timestamp.now()
-  return addDoc(ref, {
+  const docRef = await addDoc(ref, {
     title: data.title,
     description: data.description || '',
     startDate: Timestamp.fromDate(data.startDate),
@@ -69,6 +70,27 @@ export async function addEvent(data: {
     createdAt: now,
     updatedAt: now,
   })
+
+  // Google Calendar 동기화 (백그라운드)
+  syncEventToGcal({
+    id: docRef.id,
+    title: data.title,
+    description: data.description || '',
+    startDate: Timestamp.fromDate(data.startDate),
+    endDate: Timestamp.fromDate(data.endDate),
+    startTime: data.startTime || null,
+    endTime: data.endTime || null,
+    isAllDay: data.isAllDay ?? true,
+    categoryId: data.categoryId || null,
+    location: data.location || '',
+    repeat: data.repeat || 'none',
+    repeatEndDate: data.repeatEndDate ? Timestamp.fromDate(data.repeatEndDate) : null,
+    reminder: data.reminder ?? null,
+    createdAt: now,
+    updatedAt: now,
+  }).catch((e) => console.error('GCal 동기화 실패:', e))
+
+  return docRef
 }
 
 export async function updateEvent(eventId: string, data: Partial<Omit<CalendarEvent, 'id' | 'createdAt'>>) {
@@ -80,11 +102,22 @@ export async function updateEvent(eventId: string, data: Partial<Omit<CalendarEv
     ...data,
     updatedAt: Timestamp.now(),
   })
+
+  // Google Calendar 동기화 (백그라운드) - 전체 이벤트를 다시 읽어서 동기화
+  const { getDoc: getDocument } = await import('firebase/firestore')
+  getDocument(eventDoc).then((snap) => {
+    if (snap.exists()) {
+      syncEventToGcal({ id: snap.id, ...snap.data() } as CalendarEvent)
+    }
+  }).catch((e) => console.error('GCal 동기화 실패:', e))
 }
 
 export async function deleteEvent(eventId: string) {
   const ref = getEventsRef()
   if (!ref) return
+
+  // Google Calendar에서도 삭제 (백그라운드)
+  deleteEventFromGcal(eventId).catch((e) => console.error('GCal 삭제 실패:', e))
 
   await deleteDoc(doc(ref, eventId))
 }

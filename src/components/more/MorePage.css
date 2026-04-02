@@ -67,6 +67,20 @@
   color: var(--color-text-tertiary);
 }
 
+.more-menu-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-divider);
+  color: var(--color-text-tertiary);
+}
+
+.more-menu-badge.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
 .logout-btn {
   width: 100%;
   padding: var(--space-md);
