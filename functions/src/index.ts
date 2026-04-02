@@ -391,6 +391,108 @@ export const cleanupPushSubs = functions
     res.status(200).json({ ok: true, deleted: count })
   })
 
+/**
+ * 사진 업로드 (클라이언트 → Cloud Function → Storage)
+ */
+export const uploadPhoto = functions
+  .region('asia-northeast3')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+    if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return }
+    if (!auth(req, res)) return
+
+    const busboy = require('busboy')
+    const bb = busboy({ headers: req.headers })
+
+    let uid = ''
+    let fileBuffer: Buffer | null = null
+    let fileMime = 'image/jpeg'
+
+    bb.on('field', (name: string, val: string) => {
+      if (name === 'uid') uid = val
+    })
+    bb.on('file', (_name: string, file: NodeJS.ReadableStream, info: { mimeType: string }) => {
+      fileMime = info.mimeType || 'image/jpeg'
+      const chunks: Buffer[] = []
+      file.on('data', (chunk: Buffer) => chunks.push(chunk))
+      file.on('end', () => { fileBuffer = Buffer.concat(chunks) })
+    })
+    bb.on('finish', async () => {
+      if (!fileBuffer || !uid) {
+        res.status(400).json({ error: 'file and uid required' })
+        return
+      }
+
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`
+      const storagePath = `users/${uid}/diary/${fileName}`
+      const bucket = admin.storage().bucket('y-diary.firebasestorage.app')
+      const file = bucket.file(storagePath)
+
+      try {
+        await file.save(fileBuffer, { contentType: fileMime, metadata: { contentType: fileMime } })
+        await file.makePublic()
+        const url = `https://storage.googleapis.com/y-diary.firebasestorage.app/${storagePath}`
+        res.json({ ok: true, url, storagePath })
+      } catch (err: any) {
+        console.error('[uploadPhoto] error:', err.message)
+        res.status(500).json({ error: err.message })
+      }
+    })
+
+    bb.end(req.rawBody)
+  })
+
+/**
+ * Storage 진단 + CORS 설정
+ */
+export const setupCors = functions
+  .region('asia-northeast3')
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (!auth(req, res)) return
+
+    const { Storage } = require('@google-cloud/storage')
+    const storage = new Storage()
+    const bucket = storage.bucket('y-diary.firebasestorage.app')
+
+    try {
+      // 버킷 존재 확인
+      const [exists] = await bucket.exists()
+      if (!exists) {
+        res.json({ ok: false, error: 'Bucket does not exist' })
+        return
+      }
+
+      // 테스트 파일 업로드
+      const testFile = bucket.file('_test_upload.txt')
+      await testFile.save('test', { contentType: 'text/plain' })
+      await testFile.delete()
+
+      // CORS 설정
+      await bucket.setCorsConfiguration([{
+        origin: ['*'],
+        method: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD'],
+        maxAgeSeconds: 3600,
+        responseHeader: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With', 'x-goog-resumable'],
+      }])
+
+      // 기존 파일 확인
+      const [files] = await bucket.getFiles({ prefix: 'users/', maxResults: 3 })
+
+      res.json({
+        ok: true,
+        bucketExists: exists,
+        testUpload: 'success',
+        corsSet: true,
+        existingFiles: files.map((f: any) => f.name),
+      })
+    } catch (err: any) {
+      res.json({ ok: false, error: err.message })
+    }
+  })
+
 // --- Google Calendar 헬퍼 (서비스 계정) ---
 
 const COLOR_MAP: Record<string, string> = {

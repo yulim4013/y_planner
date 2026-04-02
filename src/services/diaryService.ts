@@ -46,14 +46,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
+const UPLOAD_URL = 'https://asia-northeast3-y-diary.cloudfunctions.net/uploadPhoto'
+const SHORTCUT_SECRET = 'kXllqPQXmKTV6upnTuA_dPZujYKuwsQ2MAm97dlxSkA'
+
 export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
   const uid = useAuthStore.getState().user?.uid
-  if (!uid || !storage) {
-    console.error('uploadDiaryPhoto: uid or storage is null', { uid: !!uid, storage: !!storage })
-    throw new Error('로그인 상태를 확인해주세요')
-  }
+  if (!uid) throw new Error('로그인 상태를 확인해주세요')
 
-  // 항상 JPEG로 압축하여 업로드 (호환성 + 용량 최적화)
+  // JPEG 압축
   let uploadFile: File
   try {
     uploadFile = await withTimeout(compressImage(file, 0.8, 1600), 15000, 'compressImage')
@@ -62,87 +62,37 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhoto | null> {
     uploadFile = file
   }
 
-  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`
-  const storagePath = `users/${uid}/diary/${fileName}`
-  const storageRef = ref(storage, storagePath)
+  console.log('[diary] uploading via Cloud Function, size:', uploadFile.size)
 
-  const doUpload = async (attempt: number, useSimple: boolean = false): Promise<DiaryPhoto> => {
-    const metadata = { contentType: 'image/jpeg' }
-    console.log(`[diary] uploading (attempt ${attempt}, simple=${useSimple}):`, storagePath, 'size:', uploadFile.size)
+  // Cloud Function으로 업로드
+  const formData = new FormData()
+  formData.append('file', uploadFile)
+  formData.append('uid', uid)
 
-    try {
-      if (useSimple) {
-        // 단순 업로드 (resumable 실패 시 fallback)
-        await withTimeout(uploadBytes(storageRef, uploadFile, metadata), 90000, 'uploadBytes')
-      } else {
-        // resumable 업로드
-        const uploadTask = uploadBytesResumable(storageRef, uploadFile, metadata)
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => {
-            uploadTask.cancel()
-            reject(new Error('업로드 시간 초과'))
-          }, 90000)
+  const res = await withTimeout(
+    fetch(UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'x-secret': SHORTCUT_SECRET },
+      body: formData,
+    }),
+    90000,
+    'uploadPhoto'
+  )
 
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-              console.log(`[diary] upload progress: ${pct}%`)
-            },
-            (error) => {
-              clearTimeout(timer)
-              console.error('[diary] upload error:', error.code, error.message, error.serverResponse)
-              reject(error)
-            },
-            () => {
-              clearTimeout(timer)
-              console.log('[diary] upload complete')
-              resolve()
-            }
-          )
-        })
-      }
-
-      const url = await withTimeout(getDownloadURL(storageRef), 15000, 'getDownloadURL')
-      console.log('[diary] success:', url.slice(0, 60) + '...')
-
-      return {
-        url,
-        storagePath,
-        caption: '',
-        uploadedAt: Timestamp.now(),
-      }
-    } catch (err: any) {
-      console.error(`[diary] attempt ${attempt} failed:`, err?.code, err?.message)
-      const code = err?.code || ''
-
-      // storage/unknown: 1차 → 단순 업로드로 재시도, 2차 → 대기 후 재시도
-      if (code === 'storage/unknown') {
-        if (!useSimple) {
-          console.log('[diary] retrying with simple upload...')
-          return doUpload(attempt + 1, true)
-        }
-        if (attempt < 4) {
-          console.log(`[diary] retrying in ${attempt}s...`)
-          await new Promise((r) => setTimeout(r, attempt * 1000))
-          return doUpload(attempt + 1, true)
-        }
-      }
-
-      if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
-        throw new Error('권한이 없습니다. 다시 로그인해주세요.')
-      } else if (code === 'storage/quota-exceeded') {
-        throw new Error('저장 공간이 부족합니다.')
-      } else if (code === 'storage/canceled') {
-        throw new Error('업로드 시간이 초과되었습니다.')
-      } else if (err?.message?.includes('시간 초과')) {
-        throw new Error('업로드 시간이 초과되었습니다. 네트워크를 확인해주세요.')
-      } else {
-        throw new Error(`업로드 실패: ${err?.serverResponse || err?.message || '네트워크 연결을 확인해주세요.'}`)
-      }
-    }
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`업로드 실패: ${text}`)
   }
 
-  return doUpload(1)
+  const data = await res.json()
+  console.log('[diary] success:', data.url?.slice(0, 60) + '...')
+
+  return {
+    url: data.url,
+    storagePath: data.storagePath,
+    caption: '',
+    uploadedAt: Timestamp.now(),
+  }
 }
 
 export async function deleteDiaryPhoto(storagePath: string) {
