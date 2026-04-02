@@ -372,6 +372,25 @@ export const sendScheduledNotifications = functions
     return null
   })
 
+/**
+ * 푸시 구독 전체 초기화 (중복 정리용)
+ */
+export const cleanupPushSubs = functions
+  .region('asia-northeast3')
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+    if (!auth(req, res)) return
+
+    const snap = await db.collection('users').doc(USER_UID).collection('pushSubscriptions').get()
+    const count = snap.size
+    for (const doc of snap.docs) {
+      await doc.ref.delete()
+    }
+    console.log(`[Push] Cleaned up ALL ${count} subscriptions`)
+    res.status(200).json({ ok: true, deleted: count })
+  })
+
 // --- Google Calendar 헬퍼 (서비스 계정) ---
 
 const COLOR_MAP: Record<string, string> = {
@@ -461,14 +480,36 @@ export const addItem = functions
       return
     }
     const dateTs = admin.firestore.Timestamp.fromDate(dateObj)
-    // 시간 형식 검증 (HH:mm만 허용)
+    // 시간 파싱 (다양한 형식 지원)
     const validTime = (t?: string) => {
       if (!t || !t.trim()) return null
-      const match = t.trim().match(/^(\d{1,2}):(\d{2})$/)
-      if (!match) return null
-      const h = Number(match[1]), m = Number(match[2])
-      return h >= 0 && h <= 23 && m >= 0 && m <= 59
-        ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}` : null
+      const s = t.trim()
+      // HH:mm 형식
+      const direct = s.match(/^(\d{1,2}):(\d{2})$/)
+      if (direct) {
+        const h = Number(direct[1]), m = Number(direct[2])
+        if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      }
+      // 한국어 형식: "오후 5:06" 또는 "2026. 4. 2. 오후 5:06"
+      const kr = s.match(/(오전|오후)\s*(\d{1,2}):(\d{2})/)
+      if (kr) {
+        let h = Number(kr[2]), m = Number(kr[3])
+        if (kr[1] === '오후' && h < 12) h += 12
+        if (kr[1] === '오전' && h === 12) h = 0
+        if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      }
+      // AM/PM 형식: "5:06 PM"
+      const en = s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+      if (en) {
+        let h = Number(en[1]), m = Number(en[2])
+        if (en[3].toUpperCase() === 'PM' && h < 12) h += 12
+        if (en[3].toUpperCase() === 'AM' && h === 12) h = 0
+        if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      }
+      return null
     }
     const validStartTime = validTime(startTime)
     const validEndTime = validTime(endTime)
