@@ -257,58 +257,68 @@ async function apiCall(method: string, url: string, body?: unknown) {
 
 // --- Public API ---
 
-export async function syncEventToGcal(event: CalendarEvent) {
+const CF_BASE = 'https://asia-northeast3-y-diary.cloudfunctions.net'
+const SHORTCUT_SECRET = 'kXllqPQXmKTV6upnTuA_dPZujYKuwsQ2MAm97dlxSkA'
+
+async function syncViaCloudFunction(type: 'event' | 'task', data: Record<string, unknown>) {
   const settings = await getCalendarSettings()
   if (!settings.enabled) return
 
-  const calendarId = settings.calendarId || 'primary'
-  const color = await getCategoryColor(event.categoryId)
-  const colorId = hexToColorId(color)
-  const gcalBody = toGcalEvent(event, colorId)
-  const existingId = await getGcalEventId(event.id)
-
-  if (existingId) {
-    await apiCall('PUT', `${CALENDAR_API}/calendars/${calendarId}/events/${existingId}`, gcalBody)
-  } else {
-    const result = await apiCall('POST', `${CALENDAR_API}/calendars/${calendarId}/events`, gcalBody)
-    if (result?.id) {
-      await saveGcalEventId(event.id, result.id)
-    }
+  try {
+    await fetch(`${CF_BASE}/syncItemToGcal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-secret': SHORTCUT_SECRET },
+      body: JSON.stringify({ type, ...data }),
+    })
+  } catch (e) {
+    console.error('GCal 동기화 실패:', e)
   }
+}
+
+function formatDateStr(ts: { toDate: () => Date }) {
+  const d = ts.toDate()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export async function syncEventToGcal(event: CalendarEvent) {
+  await syncViaCloudFunction('event', {
+    id: event.id,
+    title: event.title,
+    startDate: formatDateStr(event.startDate),
+    endDate: formatDateStr(event.endDate),
+    startTime: event.startTime,
+    endTime: event.endTime,
+    isAllDay: event.isAllDay,
+    categoryId: event.categoryId,
+    repeat: event.repeat,
+    repeatEndDate: event.repeatEndDate ? formatDateStr(event.repeatEndDate) : null,
+    reminder: event.reminder,
+    description: event.description,
+    location: event.location,
+  })
 }
 
 export async function syncTaskToGcal(task: Task) {
-  const settings = await getCalendarSettings()
-  if (!settings.enabled) return
-
-  const calendarId = settings.calendarId || 'primary'
-  const color = await getCategoryColor(task.categoryId)
-  const colorId = hexToColorId(color)
-  const gcalBody = taskToGcalEvent(task, colorId)
-  if (!gcalBody) return // dueDate 없으면 스킵
-
-  const taskKey = `task_${task.id}`
-  const existingId = await getGcalEventId(taskKey)
-
-  if (existingId) {
-    await apiCall('PUT', `${CALENDAR_API}/calendars/${calendarId}/events/${existingId}`, gcalBody)
-  } else {
-    const result = await apiCall('POST', `${CALENDAR_API}/calendars/${calendarId}/events`, gcalBody)
-    if (result?.id) {
-      await saveGcalEventId(taskKey, result.id)
-    }
-  }
+  if (!task.dueDate) return
+  await syncViaCloudFunction('task', {
+    id: task.id,
+    title: task.title,
+    startDate: formatDateStr(task.dueDate),
+    startTime: task.dueTime,
+    categoryId: task.categoryId,
+    repeat: task.repeat,
+    repeatEndDate: task.repeatEndDate ? formatDateStr(task.repeatEndDate) : null,
+    reminder: task.reminder,
+    description: task.description,
+  })
 }
-
-const DELETE_ITEM_URL = 'https://asia-northeast3-y-diary.cloudfunctions.net/deleteItem'
-const SHORTCUT_SECRET = 'kXllqPQXmKTV6upnTuA_dPZujYKuwsQ2MAm97dlxSkA'
 
 async function deleteViaCloudFunction(type: 'event' | 'task', id: string) {
   const settings = await getCalendarSettings()
   if (!settings.enabled) return
 
   try {
-    await fetch(DELETE_ITEM_URL, {
+    await fetch(`${CF_BASE}/deleteItem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-secret': SHORTCUT_SECRET },
       body: JSON.stringify({ type, id }),

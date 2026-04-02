@@ -755,3 +755,99 @@ export const deleteItem = functions
 
     res.status(200).json({ ok: true, type, id })
   })
+
+/**
+ * 앱에서 이벤트/태스크 생성·수정 시 Google Calendar 동기화
+ * POST body: { type: 'event'|'task', id, title, startDate, endDate?, startTime?, endTime?, isAllDay?, categoryId?, repeat?, repeatEndDate?, reminder?, description?, location? }
+ */
+export const syncItemToGcal = functions
+  .region('asia-northeast3')
+  .https.onRequest(async (req, res) => {
+    cors(res)
+    if (req.method === 'OPTIONS') { res.status(204).send(''); return }
+    if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return }
+    if (!auth(req, res)) return
+
+    const { type, id, title, startDate, endDate, startTime, endTime, isAllDay,
+      categoryId, repeat, repeatEndDate, reminder, description, location } = req.body
+
+    if (!type || !id || !title) {
+      res.status(400).json({ error: 'type, id, title 필수' })
+      return
+    }
+
+    const mappingKey = type === 'task' ? `task_${id}` : id
+    const calendarId = GCAL_CALENDAR_ID || 'primary'
+
+    try {
+      const cal = await getGcalClient()
+
+      // 카테고리 색상
+      let colorId: string | undefined
+      if (categoryId) {
+        const color = await getCategoryColor(USER_UID, categoryId)
+        if (color) colorId = COLOR_MAP[color.toUpperCase()]
+      }
+
+      const gcalEvent: Record<string, unknown> = {
+        summary: type === 'task' ? `[TODO] ${title}` : title,
+        description: description || undefined,
+        location: location || undefined,
+        ...(colorId && { colorId }),
+      }
+
+      const allDay = isAllDay ?? !startTime
+      const dateStr = startDate // YYYY-MM-DD
+
+      if (allDay) {
+        const end = endDate || startDate
+        const endNext = new Date(end + 'T00:00:00+09:00')
+        endNext.setDate(endNext.getDate() + 1)
+        gcalEvent.start = { date: dateStr }
+        gcalEvent.end = { date: endNext.toISOString().split('T')[0] }
+      } else {
+        const startDt = new Date(dateStr + 'T' + (startTime || '09:00') + ':00+09:00')
+        const endDateStr = endDate || dateStr
+        const endDt = endTime
+          ? new Date(endDateStr + 'T' + endTime + ':00+09:00')
+          : new Date(startDt.getTime() + (type === 'task' ? 30 : 60) * 60000)
+        gcalEvent.start = { dateTime: startDt.toISOString(), timeZone: 'Asia/Seoul' }
+        gcalEvent.end = { dateTime: endDt.toISOString(), timeZone: 'Asia/Seoul' }
+      }
+
+      // 반복
+      if (repeat && repeat !== 'none') {
+        const freqMap: Record<string, string> = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' }
+        let rrule = `RRULE:FREQ=${freqMap[repeat]}`
+        if (repeatEndDate) {
+          const until = new Date(repeatEndDate + 'T23:59:59+09:00').toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+          rrule += `;UNTIL=${until}`
+        }
+        gcalEvent.recurrence = [rrule]
+      }
+
+      // 리마인더
+      if (reminder != null) {
+        gcalEvent.reminders = { useDefault: false, overrides: [{ method: 'popup', minutes: reminder }] }
+      }
+
+      // 기존 매핑 확인
+      const mappingRef = db.collection('users').doc(USER_UID).collection('settings').doc('gcalMapping')
+      const mappingSnap = await mappingRef.get()
+      const existingGcalId = mappingSnap.exists ? mappingSnap.data()?.[mappingKey] : null
+
+      if (existingGcalId) {
+        await cal.events.update({ calendarId, eventId: existingGcalId, requestBody: gcalEvent as any })
+      } else {
+        const result = await cal.events.insert({ calendarId, requestBody: gcalEvent as any })
+        if (result.data.id) {
+          await mappingRef.set({ [mappingKey]: result.data.id }, { merge: true })
+        }
+      }
+
+      res.json({ ok: true })
+    } catch (err: any) {
+      console.error('[syncItemToGcal] error:', err.message)
+      res.json({ ok: false, error: err.message })
+    }
+  })
