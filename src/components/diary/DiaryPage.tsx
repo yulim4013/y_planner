@@ -464,6 +464,7 @@ export default function DiaryPage() {
                   setSelectedDate(d)
                 }}
               >
+                <div className="diary-feed-date-top">{dateLabel}</div>
                 <div className="diary-feed-thumb">
                   {hasPhoto ? (
                     <img src={entry.photos[0].url} alt="" />
@@ -473,7 +474,10 @@ export default function DiaryPage() {
                     <span className="diary-feed-text">{entry.content?.slice(0, 30) || entry.title || '-'}</span>
                   )}
                 </div>
-                <div className="diary-feed-date">{dateLabel}</div>
+                <div className="diary-feed-info">
+                  <span className="diary-feed-date">{dateLabel}</span>
+                  {entry.title && <span className="diary-feed-title">{entry.title}</span>}
+                </div>
               </div>
             )
           })

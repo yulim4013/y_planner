@@ -744,11 +744,34 @@
   line-height: 1.3;
 }
 
-.diary-feed-date {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+.diary-feed-date-top {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
   text-align: center;
-  padding: 4px 0 6px;
+  padding: 5px 0 3px;
+}
+
+.diary-feed-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 4px 6px;
+  gap: 1px;
+}
+
+.diary-feed-date {
+  display: none;
+}
+
+.diary-feed-title {
+  font-size: 10px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* ==================== PC 피드 ==================== */
