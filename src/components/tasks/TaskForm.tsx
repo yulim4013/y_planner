@@ -10,9 +10,10 @@ interface TaskFormProps {
   isOpen: boolean
   onClose: () => void
   editTask?: Task | null
+  defaultDate?: Date
 }
 
-export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
+export default function TaskForm({ isOpen, onClose, editTask, defaultDate }: TaskFormProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium')
@@ -42,8 +43,8 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     }
   }, [editTask, isOpen])
 
-  function getTodayString(): string {
-    const d = new Date()
+  function getDefaultDateString(): string {
+    const d = defaultDate || new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
@@ -52,7 +53,7 @@ export default function TaskForm({ isOpen, onClose, editTask }: TaskFormProps) {
     setDescription('')
     setPriority('medium')
     setCategoryId(null)
-    setDueDate(getTodayString())
+    setDueDate(getDefaultDateString())
     setDueTime('')
     setReminder('')
     setRepeat('none')

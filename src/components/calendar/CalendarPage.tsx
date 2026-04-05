@@ -48,6 +48,7 @@ export default function CalendarPage() {
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([])
   const [selectedItem, setSelectedItem] = useState<{ type: 'event' | 'task'; id: string } | null>(null)
   const [copiedItem, setCopiedItem] = useState<{ type: 'event' | 'task'; data: CalendarEvent | Task } | null>(null)
+  const [ymPickerOpen, setYmPickerOpen] = useState(false)
 
   // Current month string for transactions
   const currentMonthStr = format(currentDate, 'yyyy-MM')
@@ -457,10 +458,70 @@ export default function CalendarPage() {
 
       <div className="cal-nav">
         <button className="cal-nav-btn" onClick={handlePrev}>&lt;</button>
-        <span className="cal-nav-title">{getNavTitle()}</span>
+        <button
+          className="cal-nav-title cal-nav-title-btn"
+          onClick={() => setYmPickerOpen(true)}
+          type="button"
+        >
+          {getNavTitle()}
+        </button>
         <button className="cal-nav-btn" onClick={handleNext}>&gt;</button>
         <button className="cal-today-btn" onClick={handleGoToday}>오늘</button>
       </div>
+
+      {ymPickerOpen && (
+        <>
+          <div className="ym-picker-overlay" onClick={() => setYmPickerOpen(false)} />
+          <div className="ym-picker">
+            <div className="ym-picker-header">
+              <button
+                className="ym-picker-nav"
+                onClick={() => {
+                  const d = view === 'month' ? currentDate : selectedDate
+                  const newDate = new Date(d.getFullYear() - 1, d.getMonth(), 1)
+                  if (view === 'month') setCurrentDate(newDate)
+                  else { setSelectedDate(newDate); setCurrentDate(newDate) }
+                }}
+                type="button"
+              >&lt;</button>
+              <span className="ym-picker-year">
+                {(view === 'month' ? currentDate : selectedDate).getFullYear()}년
+              </span>
+              <button
+                className="ym-picker-nav"
+                onClick={() => {
+                  const d = view === 'month' ? currentDate : selectedDate
+                  const newDate = new Date(d.getFullYear() + 1, d.getMonth(), 1)
+                  if (view === 'month') setCurrentDate(newDate)
+                  else { setSelectedDate(newDate); setCurrentDate(newDate) }
+                }}
+                type="button"
+              >&gt;</button>
+            </div>
+            <div className="ym-picker-grid">
+              {Array.from({ length: 12 }, (_, i) => i).map((m) => {
+                const activeDate = view === 'month' ? currentDate : selectedDate
+                const isSelected = activeDate.getMonth() === m
+                return (
+                  <button
+                    key={m}
+                    className={`ym-picker-month ${isSelected ? 'active' : ''}`}
+                    onClick={() => {
+                      const newDate = new Date(activeDate.getFullYear(), m, 1)
+                      if (view === 'month') setCurrentDate(newDate)
+                      else { setSelectedDate(newDate); setCurrentDate(newDate) }
+                      setYmPickerOpen(false)
+                    }}
+                    type="button"
+                  >
+                    {m + 1}월
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {view === 'month' && (
         <div className="cal-desktop-row">
@@ -602,6 +663,7 @@ export default function CalendarPage() {
         isOpen={taskFormOpen}
         onClose={() => { setTaskFormOpen(false); setEditTask(null) }}
         editTask={editTask}
+        defaultDate={selectedDate}
       />
     </div>
   )

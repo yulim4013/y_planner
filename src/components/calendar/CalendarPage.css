@@ -149,6 +149,97 @@
   text-align: center;
 }
 
+.cal-nav-title-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.cal-nav-title-btn:hover,
+.cal-nav-title-btn:active {
+  background: var(--color-divider);
+}
+
+/* 연/월 선택기 */
+.ym-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ym-picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  background: var(--color-bg);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 280px;
+  max-width: calc(100vw - 32px);
+}
+
+.ym-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ym-picker-nav {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ym-picker-year {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.ym-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ym-picker-month {
+  padding: 12px 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--neu-convex-sm);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ym-picker-month:hover {
+  background: var(--color-divider);
+}
+
+.ym-picker-month.active {
+  background: var(--color-primary-light);
+  font-weight: 700;
+  box-shadow: var(--neu-concave);
+}
+
 .cal-today-btn {
   position: absolute;
   right: 0;

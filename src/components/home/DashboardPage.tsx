@@ -19,7 +19,9 @@ import {
 } from '../../services/notificationService'
 import { subscribeSleepForDate, calculateSleepDuration } from '../../services/sleepService'
 import { subscribeCategories } from '../../services/categoryService'
+import { subscribeDashboardSettings, saveDashboardSettings } from '../../services/dashboardSettingsService'
 import { subscribeTransactionsByMonth } from '../../services/budgetService'
+import BottomSheet from '../common/BottomSheet'
 import { getBudgetCategory } from '../../utils/constants'
 import EventForm from '../calendar/EventForm'
 import TaskForm from '../tasks/TaskForm'
@@ -108,6 +110,9 @@ export default function DashboardPage() {
   const [templates, setTemplates] = useState<RoutineTemplate[]>([])
   const [sleepRecords, setSleepRecords] = useState<SleepRecord[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [homeCategoryIds, setHomeCategoryIds] = useState<(string | null)[]>([null, null, null])
+  const [catPickerOpen, setCatPickerOpen] = useState(false)
+  const [pickerSlotIdx, setPickerSlotIdx] = useState<number>(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [eventFormOpen, setEventFormOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null)
@@ -178,7 +183,8 @@ export default function DashboardPage() {
     const unsubSleep = subscribeSleepForDate(todayStr, setSleepRecords)
     const unsubCats = subscribeCategories(setCategories)
     const unsubTxns = subscribeTransactionsByMonth(currentMonthStr, setTransactions)
-    return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns() }
+    const unsubDashSettings = subscribeDashboardSettings((s) => setHomeCategoryIds(s.homeCategoryIds))
+    return () => { unsubTasks(); unsubEvents(); unsubRoutines(); unsubTemplates(); unsubSleep(); unsubCats(); unsubTxns(); unsubDashSettings() }
   }, [todayStr, currentMonthStr, routineDateStr])
 
   // Today's tasks
@@ -488,24 +494,35 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 카테고리 카드 (업무/공부/운동) */}
+      {/* 카테고리 카드 (사용자 지정) */}
       <div className="dash-cat-cards">
-        {[
-          { name: '업무', color: '#C5D5F5', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="3"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>' },
-          { name: '공부', color: '#C8E6C9', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>' },
-          { name: '운동', color: '#FFD1DC', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M4 17l4-4 4 4 4-4 4 4"/><line x1="12" y1="7" x2="12" y2="13"/></svg>' },
-        ].map((cat) => {
-          const stat = categoryTimeStats.find((s) => s.name === cat.name || s.name.includes(cat.name))
+        {[0, 1, 2].map((slotIdx) => {
+          const catId = homeCategoryIds[slotIdx]
+          const cat = catId ? categories.find((c) => c.id === catId) : null
+          const stat = cat ? categoryTimeStats.find((s) => s.name === cat.name) : null
           const minutes = stat?.minutes || 0
           return (
-            <div key={cat.name} className="dash-cat-card">
-              <span className="dash-cat-icon" dangerouslySetInnerHTML={{ __html: cat.svg }} />
-              <span className="dash-cat-name">{cat.name}</span>
-              <span className="dash-cat-time">
-                {minutes > 0
-                  ? `${Math.floor(minutes / 60) > 0 ? `${Math.floor(minutes / 60)}h ` : ''}${minutes % 60 > 0 ? `${minutes % 60}m` : ''}`
-                  : '-'}
-              </span>
+            <div
+              key={slotIdx}
+              className="dash-cat-card"
+              onClick={() => { setPickerSlotIdx(slotIdx); setCatPickerOpen(true) }}
+            >
+              {cat ? (
+                <>
+                  <span className="dash-cat-icon" style={{ color: cat.color }}>{cat.icon || '·'}</span>
+                  <span className="dash-cat-name">{cat.name}</span>
+                  <span className="dash-cat-time">
+                    {minutes > 0
+                      ? `${Math.floor(minutes / 60) > 0 ? `${Math.floor(minutes / 60)}h ` : ''}${minutes % 60 > 0 ? `${minutes % 60}m` : ''}`
+                      : '-'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="dash-cat-icon" style={{ color: 'var(--color-text-tertiary)' }}>+</span>
+                  <span className="dash-cat-name" style={{ color: 'var(--color-text-tertiary)' }}>선택</span>
+                </>
+              )}
             </div>
           )
         })}
@@ -976,6 +993,46 @@ export default function DashboardPage() {
         editTxn={editTxn}
         defaultDate={today}
       />
+
+      <BottomSheet isOpen={catPickerOpen} onClose={() => setCatPickerOpen(false)} title="홈 카테고리 선택">
+        <div className="home-cat-picker">
+          <div
+            className="home-cat-picker-item"
+            onClick={async () => {
+              const next = [...homeCategoryIds]
+              next[pickerSlotIdx] = null
+              setHomeCategoryIds(next)
+              await saveDashboardSettings({ homeCategoryIds: next })
+              setCatPickerOpen(false)
+            }}
+          >
+            <span style={{ color: 'var(--color-text-tertiary)' }}>선택 안함</span>
+          </div>
+          {categories
+            .filter((c) => c.type === 'event' || c.type === 'all')
+            .map((cat) => {
+              const selected = homeCategoryIds[pickerSlotIdx] === cat.id
+              return (
+                <div
+                  key={cat.id}
+                  className={`home-cat-picker-item ${selected ? 'selected' : ''}`}
+                  onClick={async () => {
+                    const next = [...homeCategoryIds]
+                    next[pickerSlotIdx] = cat.id
+                    setHomeCategoryIds(next)
+                    await saveDashboardSettings({ homeCategoryIds: next })
+                    setCatPickerOpen(false)
+                  }}
+                >
+                  <span className="home-cat-picker-color" style={{ background: cat.color }} />
+                  <span className="home-cat-picker-icon">{cat.icon}</span>
+                  <span className="home-cat-picker-name">{cat.name}</span>
+                  {selected && <span className="home-cat-picker-check">✓</span>}
+                </div>
+              )
+            })}
+        </div>
+      </BottomSheet>
     </div>
   )
 }

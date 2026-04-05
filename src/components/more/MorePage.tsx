@@ -97,19 +97,9 @@ export default function MorePage() {
       )}
 
       <div className="more-menu">
-        <GlassCard className="more-menu-item">
-          <span className="more-menu-icon">💰</span>
-          <span className="more-menu-label">가계부</span>
-          <span className="more-menu-arrow">›</span>
-        </GlassCard>
         <GlassCard className="more-menu-item" onClick={() => setCatOpen(true)}>
           <span className="more-menu-icon">🏷️</span>
           <span className="more-menu-label">카테고리 관리</span>
-          <span className="more-menu-arrow">›</span>
-        </GlassCard>
-        <GlassCard className="more-menu-item">
-          <span className="more-menu-icon">📤</span>
-          <span className="more-menu-label">데이터 내보내기</span>
           <span className="more-menu-arrow">›</span>
         </GlassCard>
         <GlassCard className="more-menu-item" onClick={handleGcalToggle}>
@@ -120,11 +110,6 @@ export default function MorePage() {
           <span className={`more-menu-badge ${gcalEnabled ? 'active' : ''}`}>
             {gcalLoading ? '...' : gcalEnabled ? 'ON' : 'OFF'}
           </span>
-        </GlassCard>
-        <GlassCard className="more-menu-item">
-          <span className="more-menu-icon">🎨</span>
-          <span className="more-menu-label">테마 설정</span>
-          <span className="more-menu-arrow">›</span>
         </GlassCard>
       </div>
 

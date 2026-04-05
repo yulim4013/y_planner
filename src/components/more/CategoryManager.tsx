@@ -169,6 +169,10 @@ export default function CategoryManager({ isOpen, onClose }: CategoryManagerProp
             placeholder="카테고리 이름"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
           />
 
           <div className="cat-form-row">

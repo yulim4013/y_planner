@@ -75,7 +75,7 @@ export default function BottomTabBar() {
             <span className="tab-icon">
               {tabIcons[tab.icon](active)}
             </span>
-            <span className="tab-label">{tab.label}</span>
+            <span className="tab-label" translate="no">{tab.label}</span>
           </button>
         )
       })}
