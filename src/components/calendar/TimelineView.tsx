@@ -443,12 +443,13 @@ export default function TimelineView({ events, tasks, routines = [], categories 
 
     // 그룹 A: 이벤트(항상 먼저) + 근접 태스크 → greedy 컬럼 배정
     const groupA = [...evItems, ...nearItems]
-    // 이벤트 먼저, 같은 시작이면 이벤트 우선 (evItems가 앞에 있으므로 stable sort 보장)
+    // 이벤트가 시작시간과 무관하게 항상 왼쪽 컬럼 차지
+    const evIdSet = new Set(evItems.map((e) => e.id))
     groupA.sort((a, b) => {
-      const aIsEv = evItems.some((e) => e.id === a.id) ? 0 : 1
-      const bIsEv = evItems.some((e) => e.id === b.id) ? 0 : 1
-      if (a.start !== b.start) return a.start - b.start
-      return aIsEv - bIsEv // 이벤트 우선
+      const aIsEv = evIdSet.has(a.id) ? 0 : 1
+      const bIsEv = evIdSet.has(b.id) ? 0 : 1
+      if (aIsEv !== bIsEv) return aIsEv - bIsEv // 이벤트 먼저
+      return a.start - b.start
     })
 
     const colsA: { id: string; start: number; end: number }[][] = []

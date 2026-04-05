@@ -262,14 +262,48 @@
   margin-top: 12px;
 }
 
+/* 월간 뷰 스와이프 프레임 */
+.month-swipe-frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.month-swipe-slide {
+  width: 100%;
+  will-change: transform;
+}
+
+.month-swipe-adjacent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}
+
 /* iPhone-style week strip */
 .week-strip {
+  position: relative;
   margin-bottom: 12px;
   background: var(--color-bg);
   border-radius: 16px;
   box-shadow: var(--neu-convex);
   padding: 10px 4px;
   overflow: hidden;
+}
+
+.week-strip-days-frame {
+  position: relative;
+  width: 100%;
+}
+
+.week-strip-adjacent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
 }
 
 .week-strip-header {

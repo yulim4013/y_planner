@@ -101,6 +101,15 @@ export default function CalendarPage() {
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
+  // 스와이프용 인접 주간 (이전/다음)
+  const adjWeekDays = (() => {
+    const adjStart = startOfWeek(addDays(selectedDate, 7), { weekStartsOn: 0 })
+    const adjEnd = endOfWeek(adjStart, { weekStartsOn: 0 })
+    return {
+      prev: eachDayOfInterval({ start: subDays(weekStart, 7), end: subDays(weekEnd, 7) }),
+      next: eachDayOfInterval({ start: adjStart, end: adjEnd }),
+    }
+  })()
 
   // 스와이프 공통 (주간 스트립 + 월간 뷰)
   const swipeRef = useRef<{ startX: number; startY: number; decided: boolean; isHorizontal: boolean } | null>(null)
@@ -134,8 +143,10 @@ export default function CalendarPage() {
     swipeRef.current = null
 
     if (isHoriz && Math.abs(dx) > 50) {
+      const target = e.currentTarget as HTMLElement
+      const width = target?.clientWidth || window.innerWidth
       setStripAnimating(true)
-      setStripOffset(dx > 0 ? window.innerWidth : -window.innerWidth)
+      setStripOffset(dx > 0 ? width : -width)
       setTimeout(() => {
         if (dx > 0) setSelectedDate((d) => subWeeks(d, 1))
         else setSelectedDate((d) => addWeeks(d, 1))
@@ -177,8 +188,10 @@ export default function CalendarPage() {
     monthSwipeRef.current = null
 
     if (isHoriz && Math.abs(dx) > 50) {
+      const target = e.currentTarget as HTMLElement
+      const width = target?.clientWidth || window.innerWidth
       setMonthAnimating(true)
-      setMonthOffset(dx > 0 ? window.innerWidth : -window.innerWidth)
+      setMonthOffset(dx > 0 ? width : -width)
       setTimeout(() => {
         if (dx > 0) setCurrentDate((d) => subMonths(d, 1))
         else setCurrentDate((d) => addMonths(d, 1))
@@ -527,24 +540,49 @@ export default function CalendarPage() {
         <div className="cal-desktop-row">
           <GlassCard>
             <div
+              className="month-swipe-frame"
               onTouchStart={handleMonthTouchStart}
               onTouchMove={handleMonthTouchMove}
               onTouchEnd={handleMonthTouchEnd}
-              style={{
-                transform: monthOffset ? `translateX(${monthOffset}px)` : undefined,
-                transition: monthAnimating ? 'transform 0.35s ease-out' : 'none',
-              }}
             >
-              <MonthlyView
-                currentDate={currentDate}
-                events={events}
-                tasks={tasks}
-                transactions={transactions}
-                selectedDate={selectedDate}
-                onSelectDate={handleSelectDate}
-                isMoving={!!movingItem}
-                onMoveToDate={handleMoveToDate}
-              />
+              <div
+                className="month-swipe-slide"
+                style={{
+                  transform: monthOffset ? `translateX(${monthOffset}px)` : undefined,
+                  transition: monthAnimating ? 'transform 0.35s ease-out' : 'none',
+                }}
+              >
+                <MonthlyView
+                  currentDate={currentDate}
+                  events={events}
+                  tasks={tasks}
+                  transactions={transactions}
+                  selectedDate={selectedDate}
+                  onSelectDate={handleSelectDate}
+                  isMoving={!!movingItem}
+                  onMoveToDate={handleMoveToDate}
+                />
+              </div>
+              {(monthOffset !== 0 || monthAnimating) && (
+                <div
+                  className="month-swipe-adjacent"
+                  style={{
+                    transform: `translateX(${monthOffset > 0 ? 'calc(-100% + ' + monthOffset + 'px)' : 'calc(100% + ' + monthOffset + 'px)'})`,
+                    transition: monthAnimating ? 'transform 0.35s ease-out' : 'none',
+                  }}
+                >
+                  <MonthlyView
+                    currentDate={monthOffset > 0 ? subMonths(currentDate, 1) : addMonths(currentDate, 1)}
+                    events={events}
+                    tasks={tasks}
+                    transactions={transactions}
+                    selectedDate={selectedDate}
+                    onSelectDate={handleSelectDate}
+                    isMoving={!!movingItem}
+                    onMoveToDate={handleMoveToDate}
+                  />
+                </div>
+              )}
             </div>
           </GlassCard>
           <GlassCard className="cal-daily-card">
@@ -577,6 +615,7 @@ export default function CalendarPage() {
                   <div key={d} className={`ws-weekday ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>{d}</div>
                 ))}
               </div>
+              <div className="week-strip-days-frame">
               <div
                 className="week-strip-days"
                 style={{
@@ -605,6 +644,36 @@ export default function CalendarPage() {
                     </div>
                   )
                 })}
+              </div>
+              {(stripOffset !== 0 || stripAnimating) && (
+                <div
+                  className="week-strip-days week-strip-adjacent"
+                  style={{
+                    transform: `translateX(${stripOffset > 0 ? 'calc(-100% + ' + stripOffset + 'px)' : 'calc(100% + ' + stripOffset + 'px)'})`,
+                    transition: stripAnimating ? 'transform 0.35s ease-out' : 'none',
+                  }}
+                >
+                  {(stripOffset > 0 ? adjWeekDays.prev : adjWeekDays.next).map((day) => {
+                    const today = isToday(day)
+                    const dayOfWeek = day.getDay()
+                    const dots = hasDotForDay(day)
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={`ws-day ${today ? 'ws-today' : ''}`}
+                      >
+                        <span className={`ws-num ${dayOfWeek === 0 ? 'sun' : dayOfWeek === 6 ? 'sat' : ''}`}>
+                          {format(day, 'd')}
+                        </span>
+                        <div className="ws-dots">
+                          {dots.hasEvent && <span className="ws-dot ws-dot-event" />}
+                          {dots.hasTask && <span className="ws-dot ws-dot-task" />}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               </div>
             </div>
 

@@ -166,12 +166,12 @@ export default function EventForm({ isOpen, onClose, editEvent, defaultDate, def
               onChange={(e) => {
                 const val = e.target.value
                 setStartTime(val)
-                // 종료 시간이 없거나 시작 시간보다 이전이면 자동으로 1시간 후로 설정
+                // 시작 시간 설정 시 종료 시간을 1시간 뒤로 자동 설정
                 if (val) {
                   const [h, m] = val.split(':').map(Number)
                   const endH = Math.min(23, h + 1)
                   const autoEnd = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-                  if (!endTime || endTime <= val) setEndTime(autoEnd)
+                  setEndTime(autoEnd)
                 }
               }}
             />
