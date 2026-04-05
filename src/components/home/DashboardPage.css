@@ -671,6 +671,7 @@
 
 .dash-cat-card {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -680,6 +681,17 @@
   box-shadow: var(--neu-convex-sm);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.dash-cat-card .dash-cat-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dash-cat-card .dash-cat-time {
+  flex-shrink: 0;
 }
 
 /* 홈 카테고리 선택기 */
