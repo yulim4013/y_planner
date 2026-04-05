@@ -509,8 +509,10 @@ export default function DashboardPage() {
             >
               {cat ? (
                 <>
-                  <span className="dash-cat-icon" style={{ color: cat.color }}>{cat.icon || '·'}</span>
-                  <span className="dash-cat-name">{cat.name}</span>
+                  <div className="dash-cat-top">
+                    <span className="dash-cat-icon" style={{ color: cat.color }}>{cat.icon || '·'}</span>
+                    <span className="dash-cat-name">{cat.name}</span>
+                  </div>
                   <span className="dash-cat-time">
                     {minutes > 0
                       ? `${Math.floor(minutes / 60) > 0 ? `${Math.floor(minutes / 60)}h ` : ''}${minutes % 60 > 0 ? `${minutes % 60}m` : ''}`
@@ -519,8 +521,11 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <>
-                  <span className="dash-cat-icon" style={{ color: 'var(--color-text-tertiary)' }}>+</span>
-                  <span className="dash-cat-name" style={{ color: 'var(--color-text-tertiary)' }}>선택</span>
+                  <div className="dash-cat-top">
+                    <span className="dash-cat-icon" style={{ color: 'var(--color-text-tertiary)' }}>+</span>
+                    <span className="dash-cat-name" style={{ color: 'var(--color-text-tertiary)' }}>선택</span>
+                  </div>
+                  <span className="dash-cat-time">&nbsp;</span>
                 </>
               )}
             </div>

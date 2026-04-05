@@ -673,8 +673,9 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 8px 10px;
   border-radius: 10px;
   background: var(--color-bg);
@@ -684,6 +685,14 @@
   white-space: nowrap;
 }
 
+.dash-cat-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
 .dash-cat-card .dash-cat-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -691,7 +700,7 @@
 }
 
 .dash-cat-card .dash-cat-time {
-  flex-shrink: 0;
+  margin-left: 0;
 }
 
 /* 홈 카테고리 선택기 */
