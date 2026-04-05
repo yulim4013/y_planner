@@ -1,6 +1,6 @@
 rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
+service cloud.firestore {
+  match /databases/{database}/documents {
     function isAllowedEmail() {
       return request.auth != null
         && request.auth.token.email in [
@@ -8,8 +8,7 @@ service firebase.storage {
           'mi74512131@gmail.com'
         ];
     }
-    // 사용자별 폴더: 화이트리스트 이메일 본인만 읽기/쓰기
-    match /users/{userId}/{allPaths=**} {
+    match /users/{userId}/{document=**} {
       allow read, write: if isAllowedEmail() && request.auth.uid == userId;
     }
   }

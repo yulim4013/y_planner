@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "y-diary": {
+      "storage": {
+        "default": [
+          "y-diary.firebasestorage.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
