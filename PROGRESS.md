@@ -1,6 +1,6 @@
 # 나의 하루 플래너 - 진행 현황
 
-> 최종 업데이트: 2026-03-29
+> 최종 업데이트: 2026-03-31
 
 ---
 
@@ -20,7 +20,7 @@
 | 백엔드/DB | Firebase Firestore (실시간 동기화) |
 | 인증 | Firebase Auth (Google 로그인) |
 | 사진 저장 | Firebase Storage (압축 후 업로드) |
-| 호스팅 | GitHub Pages (예정) |
+| 호스팅 | GitHub Pages (배포 완료) |
 | PWA | Service Worker (수동 설정) |
 | UI | iOS 글라시즘 + 파스텔 톤 |
 | 언어 | 한국어 |
@@ -93,11 +93,15 @@
 - [x] 파스텔 색상 10종 선택 가능
 - [x] 실시간 업데이트 (클라이언트 필터링으로 composite index 이슈 해결)
 
-### 홈 대시보드 (부분 구현)
+### 홈 대시보드 ✅
 
-- [x] DashboardPage - 오늘의 태스크 진행률 + 태스크 리스트
-- [ ] 오늘 일정 미리보기 (placeholder)
-- [ ] 오늘 지출 요약 (placeholder)
+- [x] DashboardPage - 오늘 데이터 통합
+- [x] 오늘 일정 미리보기
+- [x] 오늘 할일 요약
+- [x] 오늘 지출 요약
+- [x] 수면 시간 표시
+- [x] 카테고리별 시간 통계
+- [x] 오늘의 루틴 (진행률 바)
 
 ### FAB 추가 버튼 ✅
 
@@ -105,36 +109,73 @@
 - [x] 할일 → TaskForm 바로 연결
 - [x] 일정 → EventForm 바로 연결
 
----
+### Phase 4: 일기 ✅
 
-## 미구현 기능
+- [x] DiaryForm (텍스트 + 사진 + 기분 + 제목 + 링크)
+- [x] DiaryPage (날짜별 일기 보기)
+- [x] 사진 압축 + Firebase Storage 업로드
+- [x] 기분 이모지 선택
+- [x] 일기 수정/삭제
 
-### Phase 4: 일기 시스템 ❌
+### Phase 6: 가계부 ✅
 
-- [ ] DiaryForm (텍스트 + 사진 + 기분 선택)
-- [ ] DiaryEntry 뷰 (사진 캐러셀)
-- [ ] DiaryGallery + DiaryCard (글라스 카드 그리드)
-- [ ] 사진 압축 + Firebase Storage 업로드
-- [ ] 자동 할일/일정 요약 삽입
-- 타입 정의는 완료 (DiaryEntry, DiaryPhoto, Mood)
+- [x] TransactionForm (수입/지출 입력)
+- [x] BudgetPage (월별 요약 + 카테고리별 차트)
+- [x] BudgetSetup (월별 예산 설정)
+- [x] AccountForm (계좌 관리)
 
-### Phase 6: 가계부 ❌
+### Phase 7: 루틴 시스템 ✅
 
-- [ ] ExpenseForm (수입/지출 입력)
-- [ ] ExpenseList (날짜별 그룹)
-- [ ] BudgetChart (카테고리 파이차트 + 일별 바차트)
-- [ ] BudgetSection (월별 요약)
-- 타입 정의는 완료 (Expense)
-- 카테고리 상수 정의 완료
+- [x] 루틴 템플릿 관리
+- [x] 매일 자동 루틴 인스턴스 생성
+- [x] 물 마시기 전용 UI
+- [x] 드래그로 순서 변경
+- [x] 루틴 시간 지정 (알림)
 
-### Phase 7: 마무리 ❌
+### Phase 8: 추가 기능 ✅
 
-- [ ] 데이터 내보내기 (Tasks → Sheets, 지출 → Excel)
-- [ ] 네이버 지도 연동 (장소 검색)
-- [ ] 오프라인 지원 강화
-- [ ] GitHub Pages 배포 + GitHub Actions
-- [ ] Lighthouse 최적화
-- [ ] UI 디자인 개선
+- [x] 수면 기록 (Apple Shortcuts → Cloud Functions → Firestore)
+- [x] GitHub Pages 배포 + GitHub Actions
+- [x] 다크 모드 / 반응형 디자인
+- [x] Google Sheets 내보내기
+
+### Phase 9: 캘린더 타임라인 고도화 ✅
+
+- [x] 이벤트 리사이즈 (꾹 누르기/더블클릭 → 핸들 표시)
+- [x] 빈 칸에서 일정 추가
+- [x] 겹치는 이벤트/태스크 나란히 배치
+- [x] 수면 블록 표시 (정확한 시간 위치)
+- [x] 월간 뷰 좌우 스와이프
+
+### Phase 10: 캘린더 인터랙션 ✅
+
+- [x] 한 번 클릭 → 선택 / 더블 클릭 → 수정
+- [x] Backspace → 삭제 / Cmd+C → 복사 / Cmd+V → 붙여넣기
+- [x] 크로스 카테고리 시간 겹침 분할
+- [x] 미지정 태스크 완료 시 시간 자동 기록
+- [x] 주간 뷰 컬럼 간격/분할 정렬
+
+### Phase 11: 푸시 알림 시스템 ✅
+
+- [x] 이중 알림 (클라이언트 setTimeout + Cloud Function Web Push)
+- [x] VAPID 기반 Web Push API
+- [x] tag 기반 중복 방지
+- [x] TTL 5분 설정
+
+### Phase 12: UX 개선 + 보안 (2026-04-05) ✅
+
+- [x] 홈 상단 카테고리 3개 사용자 지정 (Firestore dashboardSettings 동기화)
+- [x] 홈 카테고리 카드 2줄 레이아웃 + 중앙정렬 + ellipsis
+- [x] 캘린더 연/월 클릭 시 월 선택 팝업
+- [x] 캘린더 + 버튼 Task 추가 시 선택 날짜 적용 (defaultDate prop)
+- [x] 더보기 메뉴 정리 (가계부/테마설정/데이터내보내기 제거)
+- [x] 브라우저 자동번역 차단 (tab label, header title에 translate="no")
+- [x] 카테고리 입력 IME 버그 수정 (autoComplete/Correct/Capitalize off)
+- [x] GCal service dead code 제거 (CI 빌드 복구)
+- [x] 타임라인 일정 좌측 고정 (시작시간 무관, 이벤트 우선 컬럼 배정)
+- [x] EventForm: 시작시간 설정 시 종료시간 +1h 자동 설정
+- [x] 월간뷰/주간 스트립 스와이프 자연스럽게 (인접 패널 2번째 렌더링)
+- [x] Firestore/Storage 이메일 화이트리스트 적용
 
 ---
 
@@ -173,7 +214,15 @@ life-planner/
 │   │   ├── authService.ts
 │   │   ├── taskService.ts
 │   │   ├── eventService.ts
-│   │   └── categoryService.ts
+│   │   ├── categoryService.ts
+│   │   ├── diaryService.ts
+│   │   ├── budgetService.ts
+│   │   ├── routineService.ts
+│   │   ├── sleepService.ts
+│   │   ├── accountService.ts
+│   │   ├── notificationService.ts
+│   │   ├── fcmService.ts
+│   │   └── sheetsService.ts
 │   ├── utils/
 │   │   ├── dateUtils.ts
 │   │   ├── currencyUtils.ts
@@ -260,14 +309,16 @@ users/{userId}/
 3. **체크리스트 Firestore 저장 실패** → plain object 변환 추가
 4. **카테고리 실시간 갱신 안 됨** → composite index 대신 클라이언트 필터링
 5. **crypto.randomUUID() 호환성** → Date.now + Math.random 조합으로 대체
+6. **주간 뷰 컬럼 간격 불일치** → border-left → ::before pseudo-element 통일 + min-width:0
+7. **알림 미작동** → 클라이언트 스케줄 함수 호출 복원 + 권한 자동 요청
+8. **앱 재오픈 시 stale 알림** → Cloud Function push TTL 3600초 → 5분으로 축소
+9. **모바일 일정 알림 2번 울림** → 서버 event tag 날짜 접미사 제거 (클라이언트 tag와 일치)
 
 ---
 
 ## 다음 작업 우선순위
 
-1. 일기 시스템 (Phase 4)
-2. 홈 대시보드 완성 (일정/지출 미리보기)
-3. 가계부 (Phase 6)
-4. 데이터 내보내기
-5. GitHub Pages 배포
-6. UI 디자인 개선
+1. 3-finger touch 드래그로 블록 이동
+2. Cloud Functions Node.js 22 업그레이드 (Node 20 deprecated 2026-04-30)
+3. UI 디자인 개선
+4. Lighthouse 최적화
